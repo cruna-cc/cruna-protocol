@@ -1,5 +1,5 @@
 # Protector Protected Protocol
-A protocol to manage application NFTs
+A protocol to manage application NFTs, born from the collaboration between [The Round Table](https://trt.gg), [Nduja Labs](https://ndujalabs.com) and [Everdragons2](https://everdragons2.com).
 
 ## History
 
