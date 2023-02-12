@@ -53,6 +53,8 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     __Ownable_init();
   }
 
+  function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
+
   function configure(
     uint256 protectorId,
     bool allowAll_,
@@ -90,8 +92,6 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
       }
     }
   }
-
-  function _authorizeUpgrade(address newImplementation) internal virtual override {}
 
   function _isNFT(address asset) internal view returns (bool) {
     // will revert if asset does not implement IERC165
