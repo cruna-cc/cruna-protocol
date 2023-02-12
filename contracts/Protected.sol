@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
+
+// Author: Francesco Sullo <francesco@sullo.co>
 
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
@@ -13,32 +15,6 @@ import "./interfaces/IProtected.sol";
 import "./utils/ERC721Receiver.sol";
 
 contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721EnumerableSubordinateUpgradeable, UUPSUpgradeable {
-  event AllowListUpdated(uint256 indexed protectorId, address indexed account, bool allow);
-  event AllowAllUpdated(uint256 indexed protectorId, bool allow);
-  event AllowWithConfirmationUpdated(uint256 indexed protectorId, bool allow);
-  event Deposit(uint256 indexed protectorId, address indexed asset, uint256 indexed id, uint256 amount);
-  event DepositTransfer(uint256 indexed protectorId,  address indexed asset, uint256 id, uint256 amount, uint256 indexed senderProtectorId);
-  event UnconfirmedDeposit(uint256 indexed protectorId, uint256 depositIndex);
-  event Withdrawal(uint256 indexed protectorId, address indexed asset, uint256 indexed id, uint256 amount);
-
-  error NotAllowed();
-  error UnsupportedAsset();
-  error InvalidAmount();
-  error InvalidId();
-  error Unauthorized();
-  error UnconfirmedDepositExpired();
-  error InconsistentLengths();
-  error UnconfirmedDepositNotExpiredYet();
-  error InsufficientBalance();
-
-  struct WaitingDeposit {
-    address sender;
-    address asset;
-    uint256 id;
-    uint256 amount;
-    uint256 timestamp;
-  }
-
   modifier onlyProtectorOwner(uint256 protectorId) {
     if (ownerOf(protectorId) != msg.sender) {
       revert Unauthorized();
@@ -83,7 +59,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     bool allowWithConfirmation_,
     address[] memory allowList_,
     bool[] memory allowListStatus_
-  ) external onlyProtectorOwner(protectorId) {
+  ) external override onlyProtectorOwner(protectorId) {
     if (allowAll_ != allowAll[protectorId]) {
       if (allowAll_) {
         allowAll[protectorId] = true;
@@ -138,7 +114,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     address asset,
     uint256 id,
     uint256 amount
-  ) external {
+  ) external override {
     if (ownerOf(protectorId) == _msgSender() || allowAll[protectorId] || allowList[protectorId][_msgSender()]) {
       _deposits[asset][id][protectorId] += amount;
       emit Deposit(protectorId, asset, id, amount);
@@ -162,7 +138,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     }
   }
 
-  function confirmDeposit(uint256 protectorId, uint256 index) external onlyProtectorOwner(protectorId) {
+  function confirmDeposit(uint256 protectorId, uint256 index) external override onlyProtectorOwner(protectorId) {
     WaitingDeposit memory deposit = _unconfirmedDeposits[protectorId][index];
     if (deposit.timestamp + 1 weeks < block.timestamp) revert UnconfirmedDepositExpired();
     _deposits[deposit.asset][deposit.id][protectorId] += deposit.amount;
@@ -170,7 +146,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     delete _unconfirmedDeposits[protectorId][index];
   }
 
-  function withdrawExpiredUnconfirmedDeposit(uint256 protectorId, uint256 index) external {
+  function withdrawExpiredUnconfirmedDeposit(uint256 protectorId, uint256 index) external override {
     WaitingDeposit memory deposit = _unconfirmedDeposits[protectorId][index];
     if (deposit.sender != _msgSender()) revert Unauthorized();
     if (deposit.timestamp + 1 weeks < block.timestamp) revert UnconfirmedDepositNotExpiredYet();
@@ -194,7 +170,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     address asset,
     uint256 id,
     uint256 amount
-  ) external onlyProtectorOwner(protectorId) {
+  ) external override onlyProtectorOwner(protectorId) {
     if (_deposits[asset][id][protectorId] < amount) revert InsufficientBalance();
     _deposits[asset][id][recipientProtectorId] += amount;
     emit DepositTransfer(recipientProtectorId, asset, id, amount, protectorId);
@@ -210,7 +186,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     address asset,
     uint256 id,
     uint256 amount
-  ) external onlyProtectorOwner(protectorId) {
+  ) external override onlyProtectorOwner(protectorId) {
     if (_deposits[asset][id][protectorId] < amount) revert InsufficientBalance();
     if (_deposits[asset][id][protectorId] - amount > 0) {
       _deposits[asset][id][protectorId] -= amount;

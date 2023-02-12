@@ -6,7 +6,7 @@ const Helpers = {
   },
 
   async number(bn) {
-    return (await bn).toNumber()
+    return (await bn).toNumber();
   },
 
   async assertThrowsMessage(promise, message) {
