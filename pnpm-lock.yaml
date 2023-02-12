@@ -1,6 +1,7 @@
 lockfileVersion: 5.4
 
 specifiers:
+  '@ndujalabs/erc721subordinate': ^0.1.3
   '@nomiclabs/hardhat-ethers': ^2.0.3
   '@nomiclabs/hardhat-etherscan': ^2.1.8
   '@nomiclabs/hardhat-waffle': ^2.0.1
@@ -23,6 +24,7 @@ specifiers:
   typescript: ^4.7.3
 
 devDependencies:
+  '@ndujalabs/erc721subordinate': 0.1.3
   '@nomiclabs/hardhat-ethers': 2.0.4_ethers@5.5.4+hardhat@2.8.3
   '@nomiclabs/hardhat-etherscan': 2.1.8_hardhat@2.8.3
   '@nomiclabs/hardhat-waffle': 2.0.2_6oy2mnnnyf6xpql55mxsdlbst4
@@ -563,6 +565,10 @@ packages:
       '@ethersproject/logger': 5.5.0
       '@ethersproject/properties': 5.5.0
       '@ethersproject/strings': 5.5.0
+    dev: true
+
+  /@ndujalabs/erc721subordinate/0.1.3:
+    resolution: {integrity: sha512-mNLR5quNXTM7OcdVDBZKHVr8U6Olc4yF6m0W1rVHea+xvyoGUdmwlKnc/Usgkw2II82HVPIbbD3/v2VitnmnZg==}
     dev: true
 
   /@noble/hashes/1.1.1:

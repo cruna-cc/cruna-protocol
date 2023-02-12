@@ -3,7 +3,7 @@ A protocol to manage application NFTs, born from the collaboration between [The 
 
 ## History
 
-**0.0.1**
+**0.1.0**
 - first version
 
 ## Copyright
