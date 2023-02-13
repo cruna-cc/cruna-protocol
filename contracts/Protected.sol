@@ -110,10 +110,12 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     return IERC165Upgradeable(asset).supportsInterface(type(IERC1155Upgradeable).interfaceId);
   }
 
-  function _validateAndEmitEvent(uint256 protectorId,
+  function _validateAndEmitEvent(
+    uint256 protectorId,
     address asset,
     uint256 id,
-    uint amount) internal {
+    uint256 amount
+  ) internal {
     if (ownerOf(protectorId) == _msgSender() || allowAll[protectorId] || allowList[protectorId][_msgSender()]) {
       _deposits[asset][id][protectorId] += amount;
       emit Deposit(protectorId, asset, id, amount);
@@ -230,7 +232,11 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     }
   }
 
-  function ownsAsset(uint protectorId, address asset, uint256 id) external view override returns (uint256) {
+  function ownsAsset(
+    uint256 protectorId,
+    address asset,
+    uint256 id
+  ) external view override returns (uint256) {
     return _deposits[asset][id][protectorId];
   }
 }

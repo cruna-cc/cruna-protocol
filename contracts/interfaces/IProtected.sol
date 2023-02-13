@@ -84,5 +84,9 @@ interface IProtected {
     uint256 amount
   ) external;
 
-  function ownsAsset(uint protectorId, address asset, uint256 id) external view returns (uint);
+  function ownsAsset(
+    uint256 protectorId,
+    address asset,
+    uint256 id
+  ) external view returns (uint256);
 }
