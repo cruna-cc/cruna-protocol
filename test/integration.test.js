@@ -13,7 +13,7 @@ describe("Integration", function () {
   });
 
   beforeEach(async function () {
-    e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], deployer);
+    e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], {from: deployer});
     await e2.connect(e2Owner).safeMint(bob.address, 1);
     await e2.connect(e2Owner).safeMint(bob.address, 2);
     await e2.connect(e2Owner).safeMint(bob.address, 3);

@@ -39,9 +39,9 @@ const Helpers = {
     return contract;
   },
 
-  async deployContractUpgradeable(contractName, args = [], deployer = null) {
+  async deployContractUpgradeable(contractName, args = [], options) {
     const Contract = await this.ethers.getContractFactory(contractName);
-    const contract = await upgrades.deployProxy(Contract, args, deployer ? {from: deployer} : {});
+    const contract = await upgrades.deployProxy(Contract, args, options);
     await contract.deployed();
     return contract;
   },
