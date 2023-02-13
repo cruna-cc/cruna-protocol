@@ -70,4 +70,6 @@ interface IProtected {
     uint256 id,
     uint256 amount
   ) external;
+
+  function isOwnerOfAsset(uint protectorId, address asset, uint256 id) external view returns (bool);
 }

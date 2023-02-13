@@ -66,6 +66,10 @@ const Helpers = {
     await this.ethers.provider.send("evm_increaseTime", [offset]);
     await this.ethers.provider.send("evm_mine");
   },
+
+  async amount(str) {
+    return this.ethers.utils.parseEther(str);
+  },
 };
 
 module.exports = Helpers;

@@ -205,4 +205,8 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
       revert UnsupportedAsset();
     }
   }
+
+  function isOwnerOfAsset(uint protectorId, address asset, uint256 id) external view override returns (bool) {
+    return _deposits[asset][id][protectorId] > 0;
+  }
 }
