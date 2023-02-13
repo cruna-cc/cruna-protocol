@@ -6,14 +6,14 @@ describe("Integration", function () {
   // mocks
   let bulls, particle, fatBelly, stupidMonk, uselessWeapons;
   // wallets
-  let deployer, bob, alice, fred, john, jane, e2Owner, trtOwner;
+  let defWallet, deployer, bob, alice, fred, john, jane, e2Owner, trtOwner;
 
   before(async function () {
     [deployer, bob, alice, fred, john, jane, e2Owner, trtOwner] = await ethers.getSigners();
   });
 
   beforeEach(async function () {
-    e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address]);
+    e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], deployer);
     await e2.connect(e2Owner).safeMint(bob.address, 1);
     await e2.connect(e2Owner).safeMint(bob.address, 2);
     await e2.connect(e2Owner).safeMint(bob.address, 3);
