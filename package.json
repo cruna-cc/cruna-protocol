@@ -12,7 +12,7 @@
     "test": "npx hardhat test",
     "compile": "npx hardhat compile",
     "lint": "prettier --write 'contracts/**/*.sol' && solhint 'contracts/**/*.sol'",
-    "format": "npx prettier --write ./test/fixtures/**/*.js ./**/*.js"
+    "format": "npx prettier --write ./test/**/*.js ./**/*.js"
   },
   "repository": {
     "type": "git",

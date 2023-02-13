@@ -1,25 +1,19 @@
 const {expect} = require("chai");
-const {deployContractUpgradeable, deployContract, number} = require("./helpers");
+const {deployContractUpgradeable, deployContract} = require("./helpers");
 
 describe("Integration", function () {
-  let e2;
-  let protectedToken;
+  let e2, e2Protected;
   // mocks
-  let bulls;
-  let particel;
-  let fatBelly
-  let stupidMonk
-  let uselessWeapons
-
-  let owner, bob, alice, fred, john, jane;
+  let bulls, particle, fatBelly, stupidMonk, uselessWeapons;
+  // wallets
+  let owner, bob, alice, fred, john, jane, e2Owner, trtOwner;
 
   before(async function () {
-    [owner, bob, alice, fred, john, jane] = await ethers.getSigners();
+    [owner, bob, alice, fred, john, jane, e2Owner, trtOwner] = await ethers.getSigners();
   });
 
   beforeEach(async function () {
-    e2 = await deployContractUpgradeable("Everdragons2Protector");
-
+    e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address]);
     await e2.safeMint(bob.address, 1);
     await e2.safeMint(bob.address, 2);
     await e2.safeMint(bob.address, 3);
@@ -27,20 +21,18 @@ describe("Integration", function () {
     await e2.safeMint(alice.address, 5);
     await e2.safeMint(alice.address, 6);
 
-    protectedToken = await deployContractUpgradeable("Protected", [e2.address]);
+    e2Protected = await deployContractUpgradeable("Protected", [e2.address]);
 
     bulls = await deployContract("Bulls");
     fatBelly = await deployContract("FatBelly");
-    particel = await deployContract("Particel");
+    particle = await deployContract("Particle");
     stupidMonk = await deployContract("StupidMonk");
     uselessWeapons = await deployContract("UselessWeapons");
-
   });
 
   async function configure(protectorId, allowAll_, allowWithConfirmation_, allowList_, allowListStatus_) {
-    await protectedToken.configure(protectorId, allowAll_, allowWithConfirmation_, allowList_, allowListStatus_);
+    await e2Protected.configure(protectorId, allowAll_, allowWithConfirmation_, allowList_, allowListStatus_);
   }
 
-  it("should verify the flow", async function () {
-  });
+  it("should verify the flow", async function () {});
 });
