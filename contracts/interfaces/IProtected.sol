@@ -19,7 +19,7 @@ interface IProtected {
   event Withdrawal(uint256 indexed protectorId, address indexed asset, uint256 indexed id, uint256 amount);
 
   error NotAllowed();
-  error UnsupportedAsset();
+  error InvalidAsset();
   error InvalidAmount();
   error InvalidId();
   error Unauthorized();
@@ -27,6 +27,7 @@ interface IProtected {
   error InconsistentLengths();
   error UnconfirmedDepositNotExpiredYet();
   error InsufficientBalance();
+  error TransferFailed();
 
   struct WaitingDeposit {
     address sender;
@@ -44,7 +45,19 @@ interface IProtected {
     bool[] memory allowListStatus_
   ) external;
 
-  function depositAsset(
+  function depositNFT(
+    uint256 protectorId,
+    address asset,
+    uint256 id
+  ) external;
+
+  function depositFT(
+    uint256 protectorId,
+    address asset,
+    uint256 amount
+  ) external;
+
+  function depositSFT(
     uint256 protectorId,
     address asset,
     uint256 id,
@@ -70,4 +83,10 @@ interface IProtected {
     uint256 id,
     uint256 amount
   ) external;
+
+  function ownsAsset(
+    uint256 protectorId,
+    address asset,
+    uint256 id
+  ) external view returns (uint256);
 }

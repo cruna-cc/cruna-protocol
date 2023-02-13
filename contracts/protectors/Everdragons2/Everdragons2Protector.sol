@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "../Protector.sol";
+import "../../Protector.sol";
 
-contract Everdragons2Protector is Protector, UUPSUpgradeable {
+contract Everdragons2Protector is Protector {
   event TokenURIFrozen();
   event TokenURIUpdated(string uri);
 
@@ -13,18 +12,14 @@ contract Everdragons2Protector is Protector, UUPSUpgradeable {
   string private _baseTokenURI;
   bool private _baseTokenURIFrozen;
 
-  /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor() {
-    _disableInitializers();
-  }
-
-  function initialize() public initializer {
-    __Protector_init("Everdragons2 Protector", "E2vtNFTa");
+  function initialize(address contractOwner) public initializer {
+    __Protector_init(contractOwner, "Everdragons2 Protector", "E2vtNFTa");
     _baseTokenURI = "https://everdragons2.com/protector/";
-    __UUPSUpgradeable_init();
   }
 
-  function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+  function version() public pure virtual returns (string memory) {
+    return "1.0.0";
+  }
 
   function safeMint(address to, uint256 tokenId) public onlyOwner {
     _safeMint(to, tokenId);

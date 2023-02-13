@@ -39,9 +39,9 @@ const Helpers = {
     return contract;
   },
 
-  async deployContractUpgradeable(contractName, args = []) {
+  async deployContractUpgradeable(contractName, args = [], options) {
     const Contract = await this.ethers.getContractFactory(contractName);
-    const contract = await upgrades.deployProxy(Contract, args);
+    const contract = await upgrades.deployProxy(Contract, args, options);
     await contract.deployed();
     return contract;
   },
@@ -65,6 +65,10 @@ const Helpers = {
   async increaseBlockTimestampBy(offset) {
     await this.ethers.provider.send("evm_increaseTime", [offset]);
     await this.ethers.provider.send("evm_mine");
+  },
+
+  amount(str) {
+    return this.ethers.utils.parseEther(str);
   },
 };
 

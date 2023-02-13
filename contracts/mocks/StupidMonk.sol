@@ -10,24 +10,20 @@ contract StupidMonk is ERC721, ERC721Enumerable, Ownable {
 
   // The following functions are overrides required by Solidity.
 
-  function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
-  internal
-  override(ERC721, ERC721Enumerable)
-  {
+  function _beforeTokenTransfer(
+    address from,
+    address to,
+    uint256 tokenId,
+    uint256 batchSize
+  ) internal override(ERC721, ERC721Enumerable) {
     super._beforeTokenTransfer(from, to, tokenId, batchSize);
   }
 
-  function supportsInterface(bytes4 interfaceId)
-  public
-  view
-  override(ERC721, ERC721Enumerable)
-  returns (bool)
-  {
+  function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {
     return super.supportsInterface(interfaceId);
   }
 
   function safeMint(address to, uint256 tokenId) public onlyOwner {
     _safeMint(to, tokenId);
   }
-
 }

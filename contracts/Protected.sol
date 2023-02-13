@@ -14,6 +14,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IProtected.sol";
 import "./utils/ERC721Receiver.sol";
 
+import "hardhat/console.sol";
+
 contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721EnumerableSubordinateUpgradeable, UUPSUpgradeable {
   modifier onlyProtectorOwner(uint256 protectorId) {
     if (ownerOf(protectorId) != msg.sender) {
@@ -108,13 +110,12 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     return IERC165Upgradeable(asset).supportsInterface(type(IERC1155Upgradeable).interfaceId);
   }
 
-  // transfer asset from a wallet to a protected
-  function depositAsset(
+  function _validateAndEmitEvent(
     uint256 protectorId,
     address asset,
     uint256 id,
     uint256 amount
-  ) external override {
+  ) internal {
     if (ownerOf(protectorId) == _msgSender() || allowAll[protectorId] || allowList[protectorId][_msgSender()]) {
       _deposits[asset][id][protectorId] += amount;
       emit Deposit(protectorId, asset, id, amount);
@@ -124,17 +125,42 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
       );
       emit UnconfirmedDeposit(protectorId, _unconfirmedDeposits[protectorId].length - 1);
     } else revert NotAllowed();
-    // it will revert if the protected has not been approved to spend the asset
+  }
+
+  function depositNFT(
+    uint256 protectorId,
+    address asset,
+    uint256 id
+  ) external override {
+    _validateAndEmitEvent(protectorId, asset, id, 1);
     if (_isNFT(asset)) {
-      if (amount != 1) revert InvalidAmount();
       IERC721Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), id);
-    } else if (_isFT(asset)) {
-      if (id != 0) revert InvalidId();
-      IERC20Upgradeable(asset).transferFrom(_msgSender(), address(this), amount);
-    } else if (_isSFT(asset)) {
+    } else {
+      revert InvalidAsset();
+    }
+  }
+
+  function depositFT(
+    uint256 protectorId,
+    address asset,
+    uint256 amount
+  ) external override {
+    _validateAndEmitEvent(protectorId, asset, 0, amount);
+    bool transferred = IERC20Upgradeable(asset).transferFrom(_msgSender(), address(this), amount);
+    if (!transferred) revert TransferFailed();
+  }
+
+  function depositSFT(
+    uint256 protectorId,
+    address asset,
+    uint256 id,
+    uint256 amount
+  ) external override {
+    _validateAndEmitEvent(protectorId, asset, id, amount);
+    if (_isSFT(asset)) {
       IERC1155Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), id, amount, "");
     } else {
-      revert UnsupportedAsset();
+      revert InvalidAsset();
     }
   }
 
@@ -159,7 +185,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
       IERC1155Upgradeable(deposit.asset).safeTransferFrom(address(this), _msgSender(), deposit.id, deposit.amount, "");
     } else {
       // should never happen
-      revert UnsupportedAsset();
+      revert InvalidAsset();
     }
   }
 
@@ -202,7 +228,15 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
       IERC1155Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), id, amount, "");
     } else {
       // should never happen
-      revert UnsupportedAsset();
+      revert InvalidAsset();
     }
+  }
+
+  function ownsAsset(
+    uint256 protectorId,
+    address asset,
+    uint256 id
+  ) external view override returns (uint256) {
+    return _deposits[asset][id][protectorId];
   }
 }

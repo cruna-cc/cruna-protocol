@@ -9,6 +9,8 @@ interface IProtector {
   error NotTheTokenOwner();
   error NotApprovable();
   error NotApprovableForAll();
+  error NotTheContractDeployer();
+  error InvalidAddress();
 
   // A protector is by default not approvable.
   // To sell it on exchanges it must the made approvable.
@@ -19,5 +21,4 @@ interface IProtector {
   // It should revert if the token does not exist.
   // in any case it is not approvable for all
   function isApprovable(uint256 tokenId) external view returns (bool);
-
 }
