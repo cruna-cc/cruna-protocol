@@ -17,6 +17,10 @@ contract Everdragons2Protector is Protector {
     _baseTokenURI = "https://everdragons2.com/protector/";
   }
 
+  function version() public pure virtual returns (string memory) {
+    return "1.0.0";
+  }
+
   function safeMint(address to, uint256 tokenId) public onlyOwner {
     _safeMint(to, tokenId);
   }

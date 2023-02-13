@@ -1,15 +1,15 @@
 const {expect} = require("chai");
-const {deployContractUpgradeable, deployContract, amount} = require("./helpers");
+const {deployContractUpgradeable, deployContract, amount, assertThrowsMessage} = require("./helpers");
 
 describe("Integration", function () {
   let e2, e2Protected;
   // mocks
   let bulls, particle, fatBelly, stupidMonk, uselessWeapons;
   // wallets
-  let owner, bob, alice, fred, john, jane, e2Owner, trtOwner;
+  let deployer, bob, alice, fred, john, jane, e2Owner, trtOwner;
 
   before(async function () {
-    [owner, bob, alice, fred, john, jane, e2Owner, trtOwner] = await ethers.getSigners();
+    [deployer, bob, alice, fred, john, jane, e2Owner, trtOwner] = await ethers.getSigners();
   });
 
   beforeEach(async function () {
@@ -56,6 +56,23 @@ describe("Integration", function () {
     await e2Protected.configure(protectorId, allowAll_, allowWithConfirmation_, allowList_, allowListStatus_);
   }
 
+  it("should allow the deployer to upgrade the contract", async function () {
+    expect(await e2.version()).equal("1.0.0");
+    const e2V2 = await ethers.getContractFactory("Everdragons2ProtectorV2");
+    const newImplementation = await e2V2.deploy();
+    await newImplementation.deployed();
+    await e2.connect(deployer).upgradeTo(newImplementation.address);
+    expect(await e2.version()).equal("2.0.0");
+  });
+
+  it("should not allow the owner to upgrade the contract", async function () {
+    expect(await e2.version()).equal("1.0.0");
+    const e2V2 = await ethers.getContractFactory("Everdragons2ProtectorV2");
+    const newImplementation = await e2V2.deploy();
+    await newImplementation.deployed();
+    await assertThrowsMessage(e2.connect(e2Owner).upgradeTo(newImplementation.address), "NotTheContractDeployer()");
+  });
+
   it("should create a vault and add more assets to it", async function () {
     // bob creates a vault depositing a particle token
     await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
@@ -65,12 +82,11 @@ describe("Integration", function () {
     // bob adds a stupidMonk token to his vault
     await stupidMonk.connect(bob).setApprovalForAll(e2Protected.address, true);
     await e2Protected.connect(bob).depositNFT(1, stupidMonk.address, 1);
-    expect(await e2Protected.ownsAsset(1, stupidMonk.address, 1)).equal(1)
+    expect(await e2Protected.ownsAsset(1, stupidMonk.address, 1)).equal(1);
 
     // bob adds some bulls tokens to his vault
     await bulls.connect(bob).approve(e2Protected.address, amount("10000"));
     await e2Protected.connect(bob).depositFT(1, bulls.address, amount("5000"));
     expect(await e2Protected.ownsAsset(1, bulls.address, 0)).equal(amount("5000"));
-
   });
 });
