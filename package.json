@@ -11,8 +11,7 @@
   "scripts": {
     "test": "npx hardhat test",
     "compile": "npx hardhat compile",
-    "lint": "prettier --write 'contracts/**/*.sol' && solhint 'contracts/**/*.sol'",
-    "format": "npx prettier --write ./test/**/*.js ./**/*.js",
+    "lint": "prettier --write 'contracts/**/*.sol' && solhint 'contracts/**/*.sol' && npx prettier --write ./test/**/*.js ./**/*.js",
     "postinstall": "./post-install.sh",
     "prepare": "husky install"
   },
