@@ -39,7 +39,7 @@
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.4.0",
     "ethers": "^5.5.2",
-    "hardhat": "^2.7.1",
+    "hardhat": "^2.12.7",
     "hardhat-contract-sizer": "^2.4.0",
     "hardhat-gas-reporter": "^1.0.6",
     "husky": "^8.0.0",

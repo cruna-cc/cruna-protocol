@@ -175,7 +175,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
   function withdrawExpiredUnconfirmedDeposit(uint256 protectorId, uint256 index) external override {
     WaitingDeposit memory deposit = _unconfirmedDeposits[protectorId][index];
     if (deposit.sender != _msgSender()) revert Unauthorized();
-    if (deposit.timestamp + 1 weeks < block.timestamp) revert UnconfirmedDepositNotExpiredYet();
+    if (deposit.timestamp + 1 weeks > block.timestamp) revert UnconfirmedDepositNotExpiredYet();
     delete _unconfirmedDeposits[protectorId][index];
     if (_isNFT(deposit.asset)) {
       IERC721Upgradeable(deposit.asset).safeTransferFrom(address(this), _msgSender(), deposit.id);
