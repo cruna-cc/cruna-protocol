@@ -14,12 +14,14 @@ interface ERC721Approvable {
   // it is not necessary to emit it when the token is minted.
   event Approvable(uint256 indexed tokenId, bool approvable);
 
-  // A protector is by default not approvable.
-  // To sell it on exchanges it must the made approvable.
-  // This is done by the owner of the protector.
+  // An NFT not approvable by default can be made approvable.
+  // This forces 2 transaction for the first approval, but the
+  // implementation can create a function that does both in
+  // sequence, i.e., in a single transaction.
+  // Must be called by the owner of the NFT.
   function makeApprovable(uint256 tokenId, bool status) external;
 
-  // Returns true if the protector is approvable.
+  // Returns true if the NFT is approvable.
   // It should revert if the token does not exist.
   function isApprovable(uint256 tokenId) external view returns (bool);
 
@@ -27,5 +29,6 @@ interface ERC721Approvable {
   function defaultApprovable() external pure returns (bool);
 
   // A contract implementing this interface should not allow
-  // the approval for all.
+  // the approval for all. So, any exchange validating this interface
+  // should assume that the tokens are not approvable for all.
 }

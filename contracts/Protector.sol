@@ -75,7 +75,7 @@ contract Protector is
     override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
     returns (bool)
   {
-    return super.supportsInterface(interfaceId);
+    return interfaceId == type(ERC721Approvable).interfaceId || super.supportsInterface(interfaceId);
   }
 
   // manage approvals
