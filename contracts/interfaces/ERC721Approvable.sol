@@ -5,7 +5,7 @@ pragma solidity ^0.8.17;
 
 interface ERC721Approvable {
   // This interface is used in security related tokens, where
-  // by default a tokens is transferable only to the owner.
+  // by default a tokens is transferable only by the owner.
   // However, some tokens can be made approvable, so that
   // they can be traded on exchanges.
 
