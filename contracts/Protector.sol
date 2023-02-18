@@ -79,6 +79,11 @@ contract Protector is
   }
 
   // manage approvals
+
+  function defaultApprovable() external pure returns (bool) {
+    return false;
+  }
+
   function makeApprovable(uint256 tokenId, bool status) external virtual override {
     if (ownerOf(tokenId) != _msgSender()) revert NotTheTokenOwner();
     if (status) {
@@ -89,9 +94,8 @@ contract Protector is
     emit Approvable(tokenId, status);
   }
 
-  // Returns true if the protector is approvable.
-  // It should revert if the token does not exist.
   function isApprovable(uint256 tokenId) external view virtual override returns (bool) {
+    if (!_exists(tokenId)) revert TokenDoesNotExist();
     return _approvable[tokenId];
   }
 

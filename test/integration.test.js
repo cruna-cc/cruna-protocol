@@ -28,6 +28,8 @@ describe("Integration", function () {
     await bulls.mint(bob.address, amount("90000"));
     await bulls.mint(john.address, amount("60000"));
     await bulls.mint(jane.address, amount("100000"));
+    await bulls.mint(alice.address, amount("100000"));
+    await bulls.mint(fred.address, amount("100000"));
 
     fatBelly = await deployContract("FatBelly");
     await fatBelly.mint(alice.address, amount("10000000"));
