@@ -3,7 +3,8 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-interface ERC721Approvable {
+// the interfaceId is 0xca298e54
+interface IERC721Approvable {
   // This interface is used in security related tokens, where
   // by default a tokens is transferable only by the owner.
   // However, some tokens can be made approvable, so that

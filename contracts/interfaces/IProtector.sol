@@ -3,9 +3,9 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-import "./ERC721Approvable.sol";
+import "./IERC721Approvable.sol";
 
-interface IProtector is ERC721Approvable {
+interface IProtector is IERC721Approvable {
   error NotTheTokenOwner();
   error NotApprovable();
   error NotApprovableForAll();
