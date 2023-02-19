@@ -1,6 +1,6 @@
 {
   "name": "@ndujalabs/protector-protecter-protocol",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A protocol to manage subordinate protected assets",
   "publishConfig": {
     "access": "public"
