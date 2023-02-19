@@ -73,6 +73,8 @@ interface IProtector is IERC721Approvable {
 
   function confirmStarter(address owner_) external;
 
+  function refuseStarter(address owner_) external;
+
   function unsetStarter() external;
 
   function confirmUnsetStarter(address owner_) external;

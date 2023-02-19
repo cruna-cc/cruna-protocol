@@ -203,10 +203,14 @@ contract Protector is
     emit StarterStarted(_msgSender(), starter, true);
   }
 
-  // must be called by the transfer initializer
-  function confirmStarter(address owner_) external virtual override {
+  function _validatePendingStarter(address owner_) private view {
     if (_starters[owner_].starter != _msgSender()) revert NotTheStarter();
     if (_starters[owner_].status != Status.PENDING) revert PendingStarterNotFound();
+  }
+
+  // must be called by the transfer initializer
+  function confirmStarter(address owner_) external virtual override {
+    _validatePendingStarter(owner_);
     if (_ownersByStarter[_msgSender()] != address(0)) {
       // the transfer initializer has been associated to another owner in between the
       // set and the confirmation
@@ -215,6 +219,12 @@ contract Protector is
     _starters[owner_].status = Status.ACTIVE;
     _ownersByStarter[_msgSender()] = owner_;
     emit StarterUpdated(owner_, _msgSender(), true);
+  }
+
+  function refuseStarter(address owner_) external virtual override {
+    _validatePendingStarter(owner_);
+    _removeExistingStarter(owner_);
+    emit StarterUpdated(owner_, _msgSender(), false);
   }
 
   function unsetStarter() external virtual {
