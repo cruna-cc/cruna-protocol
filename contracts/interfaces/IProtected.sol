@@ -35,9 +35,9 @@ interface IProtected {
   error UnconfirmedDepositNotExpiredYet();
   error InsufficientBalance();
   error TransferFailed();
-  error NotAllowedWhenTransferInitializer();
+  error NotAllowedWhenStarter();
   error InvalidTransfer();
-  error NotTheTransferInitializer();
+  error NotTheStarter();
   error AssetAlreadyBeingTransferred();
   error NotTheProtectorOwner();
 

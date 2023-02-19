@@ -113,9 +113,7 @@ describe("Integration", function () {
     await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
     expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
 
-    await expect(e2.connect(bob).setTransferInitializer(mark.address))
-      .emit(e2, "TransferInitializerStarted")
-      .withArgs(bob.address, mark.address, true);
+    await expect(e2.connect(bob).setStarter(mark.address)).emit(e2, "StarterStarted").withArgs(bob.address, mark.address, true);
 
     // bob transfers the protector to alice
     await expect(transferNft(e2, bob)(bob.address, alice.address, 1))
@@ -129,12 +127,10 @@ describe("Integration", function () {
     await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
     expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
 
-    await expect(e2.connect(bob).setTransferInitializer(mark.address))
-      .emit(e2, "TransferInitializerStarted")
-      .withArgs(bob.address, mark.address, true);
+    await expect(e2.connect(bob).setStarter(mark.address)).emit(e2, "StarterStarted").withArgs(bob.address, mark.address, true);
 
-    await expect(e2.connect(mark).confirmTransferInitializer(bob.address))
-      .emit(e2, "TransferInitializerUpdated")
+    await expect(e2.connect(mark).confirmStarter(bob.address))
+      .emit(e2, "StarterUpdated")
       .withArgs(bob.address, mark.address, true);
 
     await expect(transferNft(e2, bob)(bob.address, alice.address, 1)).revertedWith("TransferNotPermitted()");
@@ -146,12 +142,10 @@ describe("Integration", function () {
     await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
     expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
 
-    await expect(e2.connect(bob).setTransferInitializer(mark.address))
-      .emit(e2, "TransferInitializerStarted")
-      .withArgs(bob.address, mark.address, true);
+    await expect(e2.connect(bob).setStarter(mark.address)).emit(e2, "StarterStarted").withArgs(bob.address, mark.address, true);
 
-    await expect(e2.connect(mark).confirmTransferInitializer(bob.address))
-      .emit(e2, "TransferInitializerUpdated")
+    await expect(e2.connect(mark).confirmStarter(bob.address))
+      .emit(e2, "StarterUpdated")
       .withArgs(bob.address, mark.address, true);
 
     await expect(e2.connect(mark).startTransfer(1, alice.address, 1000))

@@ -25,9 +25,8 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     _;
   }
 
-  modifier onlyTransferInitializer(uint256 protectorId) {
-    if (IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId)) != _msgSender())
-      revert NotTheTransferInitializer();
+  modifier onlyStarter(uint256 protectorId) {
+    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
     _;
   }
 
@@ -224,9 +223,9 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     uint256 amount
   ) external override onlyProtectorOwner(protectorId) {
     if (ownerOf(protectorId) != ownerOf(recipientProtectorId)) {
-      if (IProtector(dominantToken()).hasTransferInitializer(ownerOf(protectorId)))
+      if (IProtector(dominantToken()).hasStarter(ownerOf(protectorId)))
         // startTransferAsset must be used instead
-        revert NotAllowedWhenTransferInitializer();
+        revert NotAllowedWhenStarter();
     }
     _transferAsset(protectorId, recipientProtectorId, asset, id, amount);
   }
@@ -238,9 +237,8 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     uint256 id,
     uint256 amount,
     uint32 validFor
-  ) external override onlyTransferInitializer(protectorId) {
-    if (IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId)) != _msgSender())
-      revert NotTheTransferInitializer();
+  ) external override onlyStarter(protectorId) {
+    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
     if (_deposits[asset][id][protectorId] < amount) revert InsufficientBalance();
     if (_restrictedTransfers[asset][id].starter != address(0) || _restrictedTransfers[asset][id].expiresAt > block.timestamp)
       revert AssetAlreadyBeingTransferred();
@@ -268,7 +266,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
       transfer.toId != recipientProtectorId ||
       transfer.amount != amount ||
       transfer.expiresAt < block.timestamp ||
-      transfer.starter != IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId))
+      transfer.starter != IProtector(dominantToken()).starterFor(ownerOf(protectorId))
     ) revert InvalidTransfer();
     _transferAsset(protectorId, recipientProtectorId, asset, id, amount);
     delete _restrictedTransfers[asset][id];
