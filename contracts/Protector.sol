@@ -29,6 +29,17 @@ contract Protector is
   // tokenId => isApprovable
   mapping(uint256 => bool) private _approvable;
 
+  // the address of a second wallet required to start the transfer of a token
+  mapping(address => address) private _transferInitializer;
+
+  // the address of the owner given the second wallet required to start the transfer
+  mapping(address => address) private _ownersByTransferInitializer;
+
+  // the tokens currently being transferred when a second wallet is set
+  mapping(uint256 => CurrentTransfer) private _currentTransfers;
+
+  // a protector is owned by the project owner, but can be upgraded only
+  // by the owner of the protocol to avoid security issues, scams, fraud, etc.
   modifier onlyDeployer() {
     if (_msgSender() != contractDeployer) revert NotTheContractDeployer();
     _;
@@ -50,7 +61,7 @@ contract Protector is
   function updateDeployer(address newDeployer) external onlyDeployer {
     if (address(newDeployer) == address(0)) revert InvalidAddress();
     // after the initial deployment, the deployer can be moved to
-    // a multisig wallet, managed by a DAO, etc.
+    // a multisig wallet, a wallet managed by a DAO, etc.
     contractDeployer = newDeployer;
   }
 
@@ -65,6 +76,9 @@ contract Protector is
     uint256 tokenId,
     uint256 batchSize
   ) internal virtual override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
+    if (_transferInitializer[from] != address(0) && !_currentTransfers[tokenId].approved) {
+      revert TransferNotPermitted();
+    }
     super._beforeTokenTransfer(from, to, tokenId, batchSize);
   }
 
@@ -80,11 +94,13 @@ contract Protector is
 
   // manage approvals
 
-  function defaultApprovable() external pure returns (bool) {
+  function defaultApprovable() external view returns (bool) {
     return false;
   }
 
   function makeApprovable(uint256 tokenId, bool status) external virtual override {
+    // Notice that making it approvable is irrelevant if a transfer initializer is set
+    // Still it makes sense if/when the transfer initializer is removed
     if (ownerOf(tokenId) != _msgSender()) revert NotTheTokenOwner();
     if (status) {
       _approvable[tokenId] = true;
@@ -94,20 +110,22 @@ contract Protector is
     emit Approvable(tokenId, status);
   }
 
-  function isApprovable(uint256 tokenId) external view virtual override returns (bool) {
+  function isApprovable(uint256 tokenId) public view virtual override returns (bool) {
     if (!_exists(tokenId)) revert TokenDoesNotExist();
-    return _approvable[tokenId];
+    return _approvable[tokenId] && !onlyTransferInitializer(tokenId);
   }
 
   // overrides approval
 
   function approve(address to, uint256 tokenId) public virtual override(ERC721Upgradeable, IERC721Upgradeable) {
-    if (!_approvable[tokenId]) revert NotApprovable();
+    if (!isApprovable(tokenId)) revert NotApprovable();
     super.approve(to, tokenId);
   }
 
   function getApproved(uint256 tokenId) public view virtual override(ERC721Upgradeable, IERC721Upgradeable) returns (address) {
-    if (!_approvable[tokenId]) {
+    // a token may have been approved before it was made not approvable
+    // so we need a double check
+    if (!isApprovable(tokenId)) {
       return address(0);
     }
     return super.getApproved(tokenId);
@@ -125,6 +143,79 @@ contract Protector is
     returns (bool)
   {
     return false;
+  }
+
+  // Manage transfer initializers
+
+  function _removeExistingTransferInitializer() private {
+    delete _ownersByTransferInitializer[_transferInitializer[_msgSender()]];
+    delete _transferInitializer[_msgSender()];
+  }
+
+  // Since the transfer initializer is by owner, we do not check if they
+  // own any token. They may own one later in the future.
+  // A transfer initializer cannot be associated to more than one owner
+  function setTransferInitializer(address wallet) external virtual override {
+    if (wallet == address(0)) {
+      // allow to remove the transfer initializer
+      if (_transferInitializer[_msgSender()] == address(0)) revert TransferInitializerNotFound();
+      emit TransferInitializerChanged(_msgSender(), _transferInitializer[_msgSender()], false);
+      _removeExistingTransferInitializer();
+    } else {
+      if (_ownersByTransferInitializer[wallet] != address(0)) {
+        if (_ownersByTransferInitializer[wallet] == _msgSender()) revert TransferInitializerAlreadySet();
+        else revert SetByAnotherOwner();
+      }
+      if (_transferInitializer[_msgSender()] != address(0)) {
+        if (_transferInitializer[_msgSender()] == wallet) revert TransferInitializerAlreadySet();
+        // delete previous association
+        _removeExistingTransferInitializer();
+      }
+      _transferInitializer[_msgSender()] = wallet;
+      _ownersByTransferInitializer[wallet] = _msgSender();
+      emit TransferInitializerChanged(_msgSender(), wallet, true);
+    }
+  }
+
+  function onlyTransferInitializer(uint256 tokenId) public view virtual override returns (bool) {
+    address owner = ownerOf(tokenId);
+    return _transferInitializer[owner] != address(0);
+  }
+
+  // to reduce gas, we expect that the transfer is initiated by transfer initializer
+  // and completed by the owner, which is the only one that can actually transfer
+  // the token
+  function startTransfer(
+    uint256 tokenId,
+    address to,
+    uint256 expiresIn
+  ) external virtual override {
+    address owner_ = _ownersByTransferInitializer[_msgSender()];
+    if (owner_ == address(0)) revert NotATransferInitializer();
+    if (ownerOf(tokenId) != owner_) revert NotOwnByRelatedOwner();
+    if (_currentTransfers[tokenId].starter == _msgSender() && _currentTransfers[tokenId].expiresAt > block.timestamp)
+      revert TokenAlreadyBeingTransferred();
+    // else a previous transfer is expired or it was set by another transfer initializer
+    _currentTransfers[tokenId] = CurrentTransfer({
+      starter: _msgSender(),
+      to: to,
+      expiresAt: block.timestamp + expiresIn,
+      approved: false
+    });
+    emit TransferStarted(_msgSender(), tokenId, to);
+  }
+
+  // this must be called by the token owner
+  function completeTransfer(uint256 tokenId) external virtual override {
+    // if the transfer initializer changes, a previous transfer expires
+    if (
+      _currentTransfers[tokenId].starter != _transferInitializer[_msgSender()] ||
+      _currentTransfers[tokenId].expiresAt < block.timestamp
+    ) revert TransferExpired();
+    _currentTransfers[tokenId].approved = true;
+    _transfer(_msgSender(), _currentTransfers[tokenId].to, tokenId);
+    delete _currentTransfers[tokenId];
+    // No need to emit a specific event, since a Transfer event is emitted anyway
   }
 
   uint256[50] private __gap;

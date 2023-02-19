@@ -6,11 +6,15 @@ describe("Integration", function () {
   // mocks
   let bulls, particle, fatBelly, stupidMonk, uselessWeapons;
   // wallets
-  let defWallet, deployer, bob, alice, fred, john, jane, e2Owner, trtOwner;
+  let defWallet, deployer, bob, alice, fred, john, jane, e2Owner, trtOwner, mark;
 
   before(async function () {
-    [deployer, bob, alice, fred, john, jane, e2Owner, trtOwner] = await ethers.getSigners();
+    [deployer, bob, alice, fred, john, jane, e2Owner, trtOwner, mark] = await ethers.getSigners();
   });
+
+  function transferNft(nft, user) {
+    return nft.connect(user)["safeTransferFrom(address,address,uint256)"];
+  }
 
   beforeEach(async function () {
     e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], {from: deployer});
@@ -91,5 +95,47 @@ describe("Integration", function () {
     await bulls.connect(bob).approve(e2Protected.address, amount("10000"));
     await e2Protected.connect(bob).depositFT(1, bulls.address, amount("5000"));
     expect(await e2Protected.ownsAsset(1, bulls.address, 0)).equal(amount("5000"));
+
+    // the protected cannot be transferred
+    await expect(transferNft(e2Protected, bob)(bob.address, alice.address, 1)).revertedWith(
+      "ERC721Subordinate: transfers not allowed"
+    );
+
+    // bob transfers the protector to alice
+    await expect(transferNft(e2, bob)(bob.address, alice.address, 1))
+      .emit(e2, "Transfer")
+      .withArgs(bob.address, alice.address, 1);
+  });
+
+  it("should not allow a transfer if a transfer initializer is set", async function () {
+    // bob creates a vault depositing a particle token
+    await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
+    await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
+    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+
+    await expect(e2.connect(bob).setTransferInitializer(mark.address))
+      .emit(e2, "TransferInitializerChanged")
+      .withArgs(bob.address, mark.address, true);
+
+    await expect(transferNft(e2, bob)(bob.address, alice.address, 1)).revertedWith("TransferNotPermitted()");
+  });
+
+  it("should allow a transfer if the transfer initializer starts it", async function () {
+    // bob creates a vault depositing a particle token
+    await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
+    await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
+    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+
+    await expect(e2.connect(bob).setTransferInitializer(mark.address))
+      .emit(e2, "TransferInitializerChanged")
+      .withArgs(bob.address, mark.address, true);
+
+    await expect(e2.connect(mark).startTransfer(1, alice.address, 1000))
+      .emit(e2, "TransferStarted")
+      .withArgs(mark.address, 1, alice.address);
+
+    await expect(e2.connect(bob).completeTransfer(1)).emit(e2, "Transfer").withArgs(bob.address, alice.address, 1);
+
+    expect(await e2.ownerOf(1)).equal(alice.address);
   });
 });

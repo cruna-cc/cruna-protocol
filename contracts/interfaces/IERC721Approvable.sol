@@ -27,7 +27,8 @@ interface IERC721Approvable {
   function isApprovable(uint256 tokenId) external view returns (bool);
 
   // Returns true if the token is approvable by default.
-  function defaultApprovable() external pure returns (bool);
+  // It may be pure, but view leaves more flexibility to the implementer.
+  function defaultApprovable() external view returns (bool);
 
   // A contract implementing this interface should not allow
   // the approval for all. So, any actor validating this interface
