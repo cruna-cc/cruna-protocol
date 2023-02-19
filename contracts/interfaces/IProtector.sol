@@ -26,7 +26,7 @@ interface IProtector is IERC721Approvable {
   error TransferNotPermitted();
   error TokenIdTooBig();
 
-  struct OngoingTransfer {
+  struct ControlledTransfer {
     address starter;
     uint32 expiresAt;
     // ^ 24 bytes

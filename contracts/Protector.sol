@@ -36,7 +36,7 @@ contract Protector is
   mapping(address => address) private _ownersByTransferInitializer;
 
   // the tokens currently being transferred when a second wallet is set
-  mapping(uint256 => OngoingTransfer) private _ongoingTransfers;
+  mapping(uint256 => ControlledTransfer) private _controlledTransfers;
 
   // a protector is owned by the project owner, but can be upgraded only
   // by the owner of the protocol to avoid security issues, scams, fraud, etc.
@@ -76,7 +76,7 @@ contract Protector is
     uint256 tokenId,
     uint256 batchSize
   ) internal virtual override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
-    if (_transferInitializer[from] != address(0) && !_ongoingTransfers[tokenId].approved) {
+    if (_transferInitializer[from] != address(0) && !_controlledTransfers[tokenId].approved) {
       revert TransferNotPermitted();
     }
     super._beforeTokenTransfer(from, to, tokenId, batchSize);
@@ -213,10 +213,10 @@ contract Protector is
     address owner_ = _ownersByTransferInitializer[_msgSender()];
     if (owner_ == address(0)) revert NotATransferInitializer();
     if (ownerOf(tokenId) != owner_) revert NotOwnByRelatedOwner();
-    if (_ongoingTransfers[tokenId].starter != address(0) && _ongoingTransfers[tokenId].expiresAt > block.timestamp)
+    if (_controlledTransfers[tokenId].starter != address(0) && _controlledTransfers[tokenId].expiresAt > block.timestamp)
       revert TokenAlreadyBeingTransferred();
     // else a previous transfer is expired or it was set by another transfer initializer
-    _ongoingTransfers[tokenId] = OngoingTransfer({
+    _controlledTransfers[tokenId] = ControlledTransfer({
       starter: _msgSender(),
       to: to,
       expiresAt: uint32(block.timestamp + validFor),
@@ -229,12 +229,12 @@ contract Protector is
   function completeTransfer(uint256 tokenId) external virtual override {
     // if the transfer initializer changes, a previous transfer expires
     if (
-      _ongoingTransfers[tokenId].starter != _transferInitializer[_msgSender()] ||
-      _ongoingTransfers[tokenId].expiresAt < block.timestamp
+      _controlledTransfers[tokenId].starter != _transferInitializer[_msgSender()] ||
+      _controlledTransfers[tokenId].expiresAt < block.timestamp
     ) revert TransferExpired();
-    _ongoingTransfers[tokenId].approved = true;
-    _transfer(_msgSender(), _ongoingTransfers[tokenId].to, tokenId);
-    delete _ongoingTransfers[tokenId];
+    _controlledTransfers[tokenId].approved = true;
+    _transfer(_msgSender(), _controlledTransfers[tokenId].to, tokenId);
+    delete _controlledTransfers[tokenId];
     // No need to emit a specific event, since a Transfer event is emitted anyway
   }
 
