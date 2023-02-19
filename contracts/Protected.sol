@@ -12,6 +12,7 @@ import "@ndujalabs/erc721subordinate/contracts/ERC721EnumerableSubordinateUpgrad
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import "./interfaces/IProtected.sol";
+import "./interfaces/IProtector.sol";
 import "./utils/ERC721Receiver.sol";
 
 import "hardhat/console.sol";
@@ -44,6 +45,8 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
   mapping(address => mapping(uint256 => mapping(uint256 => uint256))) private _deposits;
 
   mapping(uint256 => WaitingDeposit[]) private _unconfirmedDeposits;
+
+  mapping(address => mapping(uint256 => RestrictedTransfer)) private _restrictedTransfers;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
@@ -189,14 +192,13 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     }
   }
 
-  // transfer asset to another protector
-  function transferAsset(
+  function _transferAsset(
     uint256 protectorId,
     uint256 recipientProtectorId,
     address asset,
     uint256 id,
     uint256 amount
-  ) external override onlyProtectorOwner(protectorId) {
+  ) internal {
     if (_deposits[asset][id][protectorId] < amount) revert InsufficientBalance();
     _deposits[asset][id][recipientProtectorId] += amount;
     emit DepositTransfer(recipientProtectorId, asset, id, amount, protectorId);
@@ -207,7 +209,66 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     }
   }
 
-  function withdrawDeposit(
+  // transfer asset to another protector
+  function transferAsset(
+    uint256 protectorId,
+    uint256 recipientProtectorId,
+    address asset,
+    uint256 id,
+    uint256 amount
+  ) external override onlyProtectorOwner(protectorId) {
+    if (ownerOf(protectorId) != ownerOf(recipientProtectorId)) {
+      if (IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId)) != address(0))
+        // user must use startTransferAsset instead
+        revert NotAllowedWhenTransferInitializer();
+    }
+    _transferAsset(protectorId, recipientProtectorId, asset, id, amount);
+  }
+
+  function startTransferAsset(
+    uint256 protectorId,
+    uint256 recipientProtectorId,
+    address asset,
+    uint256 id,
+    uint256 amount,
+    uint32 validFor
+  ) external {
+    if (IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId)) != _msgSender())
+      revert NotTheTransferInitializer();
+    if (_deposits[asset][id][protectorId] < amount) revert InsufficientBalance();
+    if (_restrictedTransfers[asset][id].starter != address(0) || _restrictedTransfers[asset][id].expiresAt > block.timestamp)
+      revert AssetAlreadyBeingTransferred();
+    _restrictedTransfers[asset][id] = RestrictedTransfer({
+      fromId: uint24(protectorId),
+      toId: uint24(recipientProtectorId),
+      starter: _msgSender(),
+      expiresAt: uint32(block.timestamp) + validFor,
+      approved: false,
+      amount: amount
+    });
+    emit DepositTransferStarted(recipientProtectorId, asset, id, amount, protectorId);
+  }
+
+  function completeTransferAsset(
+    uint256 protectorId,
+    uint256 recipientProtectorId,
+    address asset,
+    uint256 id,
+    uint256 amount
+  ) external onlyProtectorOwner(protectorId) {
+    RestrictedTransfer memory transfer = _restrictedTransfers[asset][id];
+    if (
+      transfer.fromId != protectorId ||
+      transfer.toId != recipientProtectorId ||
+      transfer.amount != amount ||
+      transfer.expiresAt < block.timestamp ||
+      transfer.starter != IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId))
+    ) revert InvalidTransfer();
+    _transferAsset(protectorId, recipientProtectorId, asset, id, amount);
+    delete _restrictedTransfers[asset][id];
+  }
+
+  function withdrawAsset(
     uint256 protectorId,
     address asset,
     uint256 id,

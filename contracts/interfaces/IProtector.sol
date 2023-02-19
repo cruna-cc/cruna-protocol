@@ -24,15 +24,22 @@ interface IProtector is IERC721Approvable {
   error NotOwnByRelatedOwner();
   error TransferExpired();
   error TransferNotPermitted();
+  error TokenIdTooBig();
 
-  struct CurrentTransfer {
+  struct OngoingTransfer {
     address starter;
+    uint32 expiresAt;
+    // ^ 24 bytes
     address to;
-    uint256 expiresAt;
     bool approved;
+    // ^ 21 bytes
   }
 
   function updateDeployer(address newDeployer) external;
+
+  function transferInitializerOf(address owner) external view returns (address);
+
+  function isTransferInitializerOf(address wallet) external view returns (address);
 
   function setTransferInitializer(address wallet) external;
 

@@ -15,6 +15,13 @@ interface IProtected {
     uint256 amount,
     uint256 indexed senderProtectorId
   );
+  event DepositTransferStarted(
+    uint256 indexed protectorId,
+    address indexed asset,
+    uint256 id,
+    uint256 amount,
+    uint256 indexed senderProtectorId
+  );
   event UnconfirmedDeposit(uint256 indexed protectorId, uint256 depositIndex);
   event Withdrawal(uint256 indexed protectorId, address indexed asset, uint256 indexed id, uint256 amount);
 
@@ -28,6 +35,10 @@ interface IProtected {
   error UnconfirmedDepositNotExpiredYet();
   error InsufficientBalance();
   error TransferFailed();
+  error NotAllowedWhenTransferInitializer();
+  error InvalidTransfer();
+  error NotTheTransferInitializer();
+  error AssetAlreadyBeingTransferred();
 
   struct WaitingDeposit {
     address sender;
@@ -35,6 +46,17 @@ interface IProtected {
     uint256 id;
     uint256 amount;
     uint256 timestamp;
+  }
+
+  struct RestrictedTransfer {
+    // we can do this because the token id of a protector is always < 2^24
+    uint24 fromId;
+    uint24 toId;
+    address starter;
+    uint32 expiresAt;
+    bool approved;
+    uint256 amount;
+    // ^ 2 words
   }
 
   function configure(
@@ -77,7 +99,7 @@ interface IProtected {
     uint256 amount
   ) external;
 
-  function withdrawDeposit(
+  function withdrawAsset(
     uint256 protectorId,
     address asset,
     uint256 id,

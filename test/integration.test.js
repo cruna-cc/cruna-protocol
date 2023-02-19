@@ -137,5 +137,6 @@ describe("Integration", function () {
     await expect(e2.connect(bob).completeTransfer(1)).emit(e2, "Transfer").withArgs(bob.address, alice.address, 1);
 
     expect(await e2.ownerOf(1)).equal(alice.address);
+    expect(await e2Protected.ownerOf(1)).equal(alice.address);
   });
 });
