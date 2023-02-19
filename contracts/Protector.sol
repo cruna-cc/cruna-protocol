@@ -30,7 +30,8 @@ contract Protector is
   mapping(uint256 => bool) private _approvable;
 
   // the address of a second wallet required to start the transfer of a token
-  mapping(address => address) private _transferInitializer;
+  // owner >> transferInitializer >> approved
+  mapping(address => TransferInitializer) private _transferInitializer;
 
   // the address of the owner given the second wallet required to start the transfer
   mapping(address => address) private _ownersByTransferInitializer;
@@ -42,6 +43,16 @@ contract Protector is
   // by the owner of the protocol to avoid security issues, scams, fraud, etc.
   modifier onlyDeployer() {
     if (_msgSender() != contractDeployer) revert NotTheContractDeployer();
+    _;
+  }
+
+  modifier notTheOwner(uint256 tokenId) {
+    if (ownerOf(tokenId) != _msgSender()) revert NotTheTokenOwner();
+    _;
+  }
+
+  modifier notTheTransferInitializer(address owner_) {
+    if (_transferInitializer[owner_].starter != _msgSender()) revert NotTransferInitializer();
     _;
   }
 
@@ -76,7 +87,7 @@ contract Protector is
     uint256 tokenId,
     uint256 batchSize
   ) internal virtual override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
-    if (_transferInitializer[from] != address(0) && !_controlledTransfers[tokenId].approved) {
+    if (_transferInitializer[from].status > Status.PENDING && !_controlledTransfers[tokenId].approved) {
       revert TransferNotPermitted();
     }
     super._beforeTokenTransfer(from, to, tokenId, batchSize);
@@ -112,7 +123,7 @@ contract Protector is
 
   function isApprovable(uint256 tokenId) public view virtual override returns (bool) {
     if (!_exists(tokenId)) revert TokenDoesNotExist();
-    return _approvable[tokenId] && !onlyTransferInitializer(tokenId);
+    return _approvable[tokenId] && !hasTransferInitializer(tokenId);
   }
 
   // overrides approval
@@ -159,47 +170,77 @@ contract Protector is
 
   // Manage transfer initializers
 
-  function transferInitializerOf(address owner) external view override returns (address) {
-    return _transferInitializer[owner];
+  function transferInitializerOf(address owner_) external view override returns (address) {
+    return _transferInitializer[owner_].status > Status.ACTIVE ? _transferInitializer[owner_].starter : address(0);
+  }
+
+  function hasTransferInitializer(address owner_) external view override returns (bool) {
+    return _transferInitializer[owner_].status > Status.PENDING;
   }
 
   function isTransferInitializerOf(address wallet) external view override returns (address) {
     return _ownersByTransferInitializer[wallet];
   }
 
-  function _removeExistingTransferInitializer() private {
-    delete _ownersByTransferInitializer[_transferInitializer[_msgSender()]];
-    delete _transferInitializer[_msgSender()];
+  function _removeExistingTransferInitializer(address owner_) private {
+    delete _ownersByTransferInitializer[_transferInitializer[owner_].starter];
+    delete _transferInitializer[owner_];
   }
 
   // Since the transfer initializer is by owner, we do not check if they
   // own any token. They may own one later in the future.
-  // A transfer initializer cannot be associated to more than one owner
-  function setTransferInitializer(address wallet) external virtual override {
-    if (wallet == address(0)) {
-      // allow to remove the transfer initializer
-      if (_transferInitializer[_msgSender()] == address(0)) revert TransferInitializerNotFound();
-      emit TransferInitializerChanged(_msgSender(), _transferInitializer[_msgSender()], false);
-      _removeExistingTransferInitializer();
+  // A wallet can be the transfer initializer for a single owner.
+  // However, wallet A can be the TI for wallet B, while at same time,
+  // wallet B can be the TI for wallet A.
+  function setTransferInitializer(address starter) external virtual override {
+    if (starter == address(0)) revert InvalidAddress();
+    if (_ownersByTransferInitializer[starter] != address(0)) {
+      if (_ownersByTransferInitializer[starter] == _msgSender()) revert TransferInitializerAlreadySetByYou();
+      else revert AssociatedToAnotherOwner();
+    }
+    if (_transferInitializer[_msgSender()].status != Status.UNSET) revert TransferInitializerAlreadySet();
+    _transferInitializer[_msgSender()] = TransferInitializer({starter: starter, status: Status.PENDING});
+    emit TransferInitializerStarted(_msgSender(), starter, true);
+  }
+
+  // must be called by the transfer initializer
+  function confirmTransferInitializer(address owner_) external virtual override {
+    if (_transferInitializer[owner_].starter != _msgSender()) revert NotTheTransferInitializer();
+    if (_transferInitializer[owner_].status != Status.PENDING) revert PendingTransferInitializerNotFound();
+    if (_ownersByTransferInitializer[_msgSender()] != address(0)) {
+      // the transfer initializer has been associated to another owner in between the
+      // set and the confirmation
+      revert AssociatedToAnotherOwner();
+    }
+    _transferInitializer[owner_].status = Status.ACTIVE;
+    _ownersByTransferInitializer[_msgSender()] = owner_;
+    emit TransferInitializerUpdated(owner_, _msgSender(), true);
+  }
+
+  function unsetTransferInitializer() external virtual {
+    if (_transferInitializer[_msgSender()].status == Status.UNSET) revert TransferInitializerNotFound();
+    if (_transferInitializer[_msgSender()].status == Status.REMOVABLE) revert UnsetAlreadyStarted();
+    if (_transferInitializer[_msgSender()].status == Status.ACTIVE) {
+      // require confirmation by the starter
+      _transferInitializer[_msgSender()].status = Status.REMOVABLE;
+      emit TransferInitializerStarted(_msgSender(), _transferInitializer[_msgSender()].starter, false);
     } else {
-      if (_ownersByTransferInitializer[wallet] != address(0)) {
-        if (_ownersByTransferInitializer[wallet] == _msgSender()) revert TransferInitializerAlreadySet();
-        else revert SetByAnotherOwner();
-      }
-      if (_transferInitializer[_msgSender()] != address(0)) {
-        if (_transferInitializer[_msgSender()] == wallet) revert TransferInitializerAlreadySet();
-        // delete previous association
-        _removeExistingTransferInitializer();
-      }
-      _transferInitializer[_msgSender()] = wallet;
-      _ownersByTransferInitializer[wallet] = _msgSender();
-      emit TransferInitializerChanged(_msgSender(), wallet, true);
+      // can be removed without confirmation
+      emit TransferInitializerUpdated(_msgSender(), _transferInitializer[_msgSender()].starter, false);
+      _removeExistingTransferInitializer(_msgSender());
     }
   }
 
-  function onlyTransferInitializer(uint256 tokenId) public view virtual override returns (bool) {
-    address owner = ownerOf(tokenId);
-    return _transferInitializer[owner] != address(0);
+  function confirmUnsetTransferInitializer(address owner_) external virtual {
+    if (_transferInitializer[owner_].starter != _msgSender()) revert NotTransferInitializer();
+    if (_transferInitializer[owner_].status != Status.REMOVABLE) revert UnsetNotStarted();
+    emit TransferInitializerUpdated(owner_, _msgSender(), false);
+    _removeExistingTransferInitializer(owner_);
+  }
+
+  function hasTransferInitializer(uint256 tokenId) public view virtual override returns (bool) {
+    address owner_ = ownerOf(tokenId);
+    return _transferInitializer[owner_].status > Status.PENDING;
   }
 
   // to reduce gas, we expect that the transfer is initiated by transfer initializer
@@ -211,7 +252,7 @@ contract Protector is
     uint256 validFor
   ) external virtual override {
     address owner_ = _ownersByTransferInitializer[_msgSender()];
-    if (owner_ == address(0)) revert NotATransferInitializer();
+    if (owner_ == address(0)) revert NotTransferInitializer();
     if (ownerOf(tokenId) != owner_) revert NotOwnByRelatedOwner();
     if (_controlledTransfers[tokenId].starter != address(0) && _controlledTransfers[tokenId].expiresAt > block.timestamp)
       revert TokenAlreadyBeingTransferred();
@@ -227,15 +268,20 @@ contract Protector is
 
   // this must be called by the token owner
   function completeTransfer(uint256 tokenId) external virtual override {
-    // if the transfer initializer changes, a previous transfer expires
     if (
-      _controlledTransfers[tokenId].starter != _transferInitializer[_msgSender()] ||
+      // the transfer initializer has changed since the transfer started
+      _controlledTransfers[tokenId].starter != _transferInitializer[_msgSender()].starter ||
+      // the transfer is expired
       _controlledTransfers[tokenId].expiresAt < block.timestamp
-    ) revert TransferExpired();
-    _controlledTransfers[tokenId].approved = true;
-    _transfer(_msgSender(), _controlledTransfers[tokenId].to, tokenId);
-    delete _controlledTransfers[tokenId];
-    // No need to emit a specific event, since a Transfer event is emitted anyway
+    ) {
+      delete _controlledTransfers[tokenId];
+      emit TransferExpired(tokenId);
+    } else {
+      _controlledTransfers[tokenId].approved = true;
+      _transfer(_msgSender(), _controlledTransfers[tokenId].to, tokenId);
+      delete _controlledTransfers[tokenId];
+      // No need to emit a specific event, since a Transfer event is emitted anyway
+    }
   }
 
   uint256[50] private __gap;

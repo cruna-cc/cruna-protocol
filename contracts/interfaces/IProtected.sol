@@ -29,7 +29,7 @@ interface IProtected {
   error InvalidAsset();
   error InvalidAmount();
   error InvalidId();
-  error Unauthorized();
+  error NotTheDepositer();
   error UnconfirmedDepositExpired();
   error InconsistentLengths();
   error UnconfirmedDepositNotExpiredYet();
@@ -39,6 +39,7 @@ interface IProtected {
   error InvalidTransfer();
   error NotTheTransferInitializer();
   error AssetAlreadyBeingTransferred();
+  error NotTheProtectorOwner();
 
   struct WaitingDeposit {
     address sender;
@@ -92,6 +93,23 @@ interface IProtected {
 
   // transfer asset to another protector
   function transferAsset(
+    uint256 protectorId,
+    uint256 recipientProtectorId,
+    address asset,
+    uint256 id,
+    uint256 amount
+  ) external;
+
+  function startTransferAsset(
+    uint256 protectorId,
+    uint256 recipientProtectorId,
+    address asset,
+    uint256 id,
+    uint256 amount,
+    uint32 validFor
+  ) external;
+
+  function completeTransferAsset(
     uint256 protectorId,
     uint256 recipientProtectorId,
     address asset,

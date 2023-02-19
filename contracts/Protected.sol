@@ -20,8 +20,14 @@ import "hardhat/console.sol";
 contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721EnumerableSubordinateUpgradeable, UUPSUpgradeable {
   modifier onlyProtectorOwner(uint256 protectorId) {
     if (ownerOf(protectorId) != msg.sender) {
-      revert Unauthorized();
+      revert NotTheProtectorOwner();
     }
+    _;
+  }
+
+  modifier onlyTransferInitializer(uint256 protectorId) {
+    if (IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId)) != _msgSender())
+      revert NotTheTransferInitializer();
     _;
   }
 
@@ -177,7 +183,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
 
   function withdrawExpiredUnconfirmedDeposit(uint256 protectorId, uint256 index) external override {
     WaitingDeposit memory deposit = _unconfirmedDeposits[protectorId][index];
-    if (deposit.sender != _msgSender()) revert Unauthorized();
+    if (deposit.sender != _msgSender()) revert NotTheDepositer();
     if (deposit.timestamp + 1 weeks > block.timestamp) revert UnconfirmedDepositNotExpiredYet();
     delete _unconfirmedDeposits[protectorId][index];
     if (_isNFT(deposit.asset)) {
@@ -218,8 +224,8 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     uint256 amount
   ) external override onlyProtectorOwner(protectorId) {
     if (ownerOf(protectorId) != ownerOf(recipientProtectorId)) {
-      if (IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId)) != address(0))
-        // user must use startTransferAsset instead
+      if (IProtector(dominantToken()).hasTransferInitializer(ownerOf(protectorId)))
+        // startTransferAsset must be used instead
         revert NotAllowedWhenTransferInitializer();
     }
     _transferAsset(protectorId, recipientProtectorId, asset, id, amount);
@@ -232,7 +238,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     uint256 id,
     uint256 amount,
     uint32 validFor
-  ) external {
+  ) external override onlyTransferInitializer(protectorId) {
     if (IProtector(dominantToken()).transferInitializerOf(ownerOf(protectorId)) != _msgSender())
       revert NotTheTransferInitializer();
     if (_deposits[asset][id][protectorId] < amount) revert InsufficientBalance();
@@ -255,7 +261,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     address asset,
     uint256 id,
     uint256 amount
-  ) external onlyProtectorOwner(protectorId) {
+  ) external override onlyProtectorOwner(protectorId) {
     RestrictedTransfer memory transfer = _restrictedTransfers[asset][id];
     if (
       transfer.fromId != protectorId ||
