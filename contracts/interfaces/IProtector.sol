@@ -61,6 +61,8 @@ interface IProtector is IERC721Approvable {
     Status status;
   }
 
+  function makeApprovable(uint256 tokenId, bool status) external;
+
   function updateDeployer(address newDeployer) external;
 
   function starterFor(address owner_) external view returns (address);

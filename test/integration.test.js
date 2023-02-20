@@ -67,7 +67,7 @@ describe("Integration", function () {
     const e2V2 = await ethers.getContractFactory("Everdragons2ProtectorV2");
     const newImplementation = await e2V2.deploy();
     await newImplementation.deployed();
-    expect(await newImplementation.getId()).equal("0xca298e54");
+    expect(await newImplementation.getId()).equal("0xf98e5a0b");
     await e2.connect(deployer).upgradeTo(newImplementation.address);
     expect(await e2.version()).equal("2.0.0");
   });
