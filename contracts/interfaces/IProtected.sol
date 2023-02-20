@@ -40,13 +40,27 @@ interface IProtected {
   error NotTheStarter();
   error AssetAlreadyBeingTransferred();
   error NotTheProtectorOwner();
+  error AssetNotFound();
+  error AssetNotDeposited();
+  error UnsupportedTooLargeTokenId();
+
+  enum TokenType {
+    ERC20,
+    ERC721,
+    ERC1155,
+    ERC777
+  }
 
   struct WaitingDeposit {
-    address sender;
-    address asset;
-    uint256 id;
+    // not possible with less than 3 words :-(
     uint256 amount;
-    uint256 timestamp;
+    //
+    TokenType tokenType;
+    uint232 id;
+    //
+    address sender;
+    uint32 timestamp;
+    uint24 assetId;
   }
 
   struct RestrictedTransfer {
@@ -124,7 +138,7 @@ interface IProtected {
     uint256 amount
   ) external;
 
-  function ownsAsset(
+  function ownedAssetAmount(
     uint256 protectorId,
     address asset,
     uint256 id

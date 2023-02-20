@@ -84,17 +84,17 @@ describe("Integration", function () {
     // bob creates a vault depositing a particle token
     await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
     await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
-    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+    expect(await e2Protected.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
     // bob adds a stupidMonk token to his vault
     await stupidMonk.connect(bob).setApprovalForAll(e2Protected.address, true);
     await e2Protected.connect(bob).depositNFT(1, stupidMonk.address, 1);
-    expect(await e2Protected.ownsAsset(1, stupidMonk.address, 1)).equal(1);
+    expect(await e2Protected.ownedAssetAmount(1, stupidMonk.address, 1)).equal(1);
 
     // bob adds some bulls tokens to his vault
     await bulls.connect(bob).approve(e2Protected.address, amount("10000"));
     await e2Protected.connect(bob).depositFT(1, bulls.address, amount("5000"));
-    expect(await e2Protected.ownsAsset(1, bulls.address, 0)).equal(amount("5000"));
+    expect(await e2Protected.ownedAssetAmount(1, bulls.address, 0)).equal(amount("5000"));
 
     // the protected cannot be transferred
     await expect(transferNft(e2Protected, bob)(bob.address, alice.address, 1)).revertedWith(
@@ -111,7 +111,7 @@ describe("Integration", function () {
     // bob creates a vault depositing a particle token
     await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
     await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
-    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+    expect(await e2Protected.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
     await expect(e2.connect(bob).setStarter(mark.address)).emit(e2, "StarterStarted").withArgs(bob.address, mark.address, true);
 
@@ -125,7 +125,7 @@ describe("Integration", function () {
     // bob creates a vault depositing a particle token
     await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
     await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
-    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+    expect(await e2Protected.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
     await expect(e2.connect(bob).setStarter(mark.address)).emit(e2, "StarterStarted").withArgs(bob.address, mark.address, true);
 
@@ -140,7 +140,7 @@ describe("Integration", function () {
     // bob creates a vault depositing a particle token
     await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
     await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
-    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+    expect(await e2Protected.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
     await expect(e2.connect(bob).setStarter(mark.address)).emit(e2, "StarterStarted").withArgs(bob.address, mark.address, true);
 

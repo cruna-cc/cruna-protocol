@@ -13,6 +13,7 @@
     "compile": "npx hardhat compile",
     "lint": "prettier --write 'contracts/**/*.sol' && solhint 'contracts/**/*.sol' && npx prettier --write ./test/**/*.js ./**/*.js",
     "postinstall": "./post-install.sh",
+    "coverage": "npx hardhat coverage",
     "prepare": "husky install"
   },
   "repository": {
@@ -47,7 +48,7 @@
     "prettier-plugin-solidity": "^1.0.0-beta.19",
     "pretty-quick": "^3.1.3",
     "solhint": "^3.3.6",
-    "solidity-coverage": "^0.7.21",
+    "solidity-coverage": "^0.8.2",
     "soliutils": "^0.0.4",
     "typescript": "^4.7.3"
   },
