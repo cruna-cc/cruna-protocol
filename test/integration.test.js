@@ -3,6 +3,7 @@ const {deployContractUpgradeable, deployContract, amount, assertThrowsMessage} =
 
 describe("Integration", function () {
   let e2, e2Protected;
+  let assetRegistry;
   // mocks
   let bulls, particle, fatBelly, stupidMonk, uselessWeapons;
   // wallets
@@ -17,6 +18,8 @@ describe("Integration", function () {
   }
 
   beforeEach(async function () {
+    assetRegistry = await deployContractUpgradeable("AssetRegistry");
+
     e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], {from: deployer});
     await e2.connect(e2Owner).safeMint(bob.address, 1);
     await e2.connect(e2Owner).safeMint(bob.address, 2);
@@ -25,7 +28,8 @@ describe("Integration", function () {
     await e2.connect(e2Owner).safeMint(alice.address, 5);
     await e2.connect(e2Owner).safeMint(alice.address, 6);
 
-    e2Protected = await deployContractUpgradeable("Protected", [e2.address]);
+    e2Protected = await deployContractUpgradeable("Protected", [e2.address, assetRegistry.address]);
+    await assetRegistry.registerProtected(e2Protected.address);
 
     // erc20
     bulls = await deployContract("Bulls");

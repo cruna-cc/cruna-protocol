@@ -11,13 +11,20 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@ndujalabs/erc721subordinate/contracts/ERC721EnumerableSubordinateUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "./interfaces/IProtected.sol";
+import "./interfaces/IProtectedExtended.sol";
 import "./interfaces/IProtector.sol";
+import "./interfaces/IAssetRegistry.sol";
 import "./utils/ERC721Receiver.sol";
 
 import "hardhat/console.sol";
 
-contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721EnumerableSubordinateUpgradeable, UUPSUpgradeable {
+contract Protected is
+  IProtectedExtended,
+  ERC721Receiver,
+  OwnableUpgradeable,
+  ERC721EnumerableSubordinateUpgradeable,
+  UUPSUpgradeable
+{
   modifier onlyProtectorOwner(uint256 protectorId) {
     if (ownerOf(protectorId) != msg.sender) {
       revert NotTheProtectorOwner();
@@ -45,9 +52,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
   // allowList and allowWithConfirmation are not mutually exclusive
   // The protector can have an allowList and confirm deposits from other senders
 
-  mapping(address => uint256) private _assetIds;
-  mapping(uint256 => address) private _assetsById;
-  uint256 private _lastAssetID; // 24 bits
+  IAssetRegistry private _assetRegistry;
 
   // deposits can change with time, if the amount of the asset increases or decreases
   // Asset => ID => Protector ID => Amount
@@ -75,38 +80,42 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     _disableInitializers();
   }
 
-  function initialize(address protector) public initializer {
+  function initialize(address protector, address assetRegistry_) public initializer {
     __ERC721EnumerableSubordinate_init("Protected - Transparent Vault NFT App", "tvNFTa", protector);
     __Ownable_init();
+    if (assetRegistry_.code.length == 0) revert NotAContract();
+    _assetRegistry = IAssetRegistry(assetRegistry_);
   }
 
   function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
+  function isProtected() external pure returns (bool) {
+    return true;
+  }
+
   function _assetId(address asset) private returns (uint256) {
-    uint256 assetId = _assetIds[asset];
+    uint256 assetId = _assetRegistry.assetId(asset);
     if (assetId == 0) {
-      assetId = ++_lastAssetID;
-      _assetIds[asset] = assetId;
-      _assetsById[assetId] = asset;
+      assetId = _assetRegistry.registerAsset(asset);
     }
     // we assume this will never be larger than 2^24
     // so we do not check it
     return assetId;
   }
 
-  function _encodeAssetAndTokenId(uint256 assetId, uint256 tokenId) private pure returns (uint256) {
-    if (tokenId > type(uint232).max) revert UnsupportedTooLargeTokenId();
-    return (tokenId << 24) | assetId;
+  function _encodeAssetAndTokenId(uint256 assetId, uint256 tokenId) private view returns (uint256) {
+    return _assetRegistry.encodeAssetAndTokenId(assetId, tokenId);
   }
 
-  function _decodeAssetAndTokenId(uint256 encodedAssetIdAndId) private pure returns (uint256, uint256) {
-    return (encodedAssetIdAndId >> 24, uint256(uint24(encodedAssetIdAndId)));
+  function _decodeAssetAndTokenId(uint256 encodedAssetIdAndId) private view returns (uint256, uint256) {
+    return _assetRegistry.decodeAssetAndTokenId(encodedAssetIdAndId);
   }
 
   function ownerOfNFT(address asset, uint256 tokenId) public view returns (address) {
-    if (_assetIds[asset] == 0) revert AssetNotFound();
-    if (_NFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], tokenId)] == 0) revert AssetNotDeposited();
-    return ownerOf(_NFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], tokenId)]);
+    uint256 assetId = _assetRegistry.assetId(asset);
+    if (assetId == 0) revert AssetNotFound();
+    if (_NFTDeposits[_encodeAssetAndTokenId(assetId, tokenId)] == 0) revert AssetNotDeposited();
+    return ownerOf(_NFTDeposits[_encodeAssetAndTokenId(assetId, tokenId)]);
   }
 
   function configure(
@@ -241,7 +250,8 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     } else if (deposit.tokenType == TokenType.ERC20) {
       _FTDeposits[deposit.assetId][protectorId] += deposit.amount;
     }
-    emit Deposit(protectorId, _assetsById[deposit.assetId], deposit.id, deposit.amount);
+
+    emit Deposit(protectorId, _assetRegistry.assetById(deposit.assetId), deposit.id, deposit.amount);
     delete _unconfirmedDeposits[protectorId][index];
   }
 
@@ -250,7 +260,7 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     if (deposit.sender != _msgSender()) revert NotTheDepositer();
     if (deposit.timestamp + 1 weeks > block.timestamp) revert UnconfirmedDepositNotExpiredYet();
     delete _unconfirmedDeposits[protectorId][index];
-    address asset = _assetsById[deposit.assetId];
+    address asset = _assetRegistry.assetById(deposit.assetId);
     if (deposit.tokenType == TokenType.ERC721) {
       IERC721Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), deposit.id);
     } else if (deposit.tokenType == TokenType.ERC20) {
@@ -400,14 +410,15 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     address asset,
     uint256 id
   ) external view override returns (uint256) {
-    if (_assetIds[asset] == 0) {
+    uint256 assetId = _assetRegistry.assetId(asset);
+    if (assetId == 0) {
       return 0;
     } else if (_isNFT(asset)) {
-      if (_NFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], id)] == protectorId) return 1;
+      if (_NFTDeposits[_encodeAssetAndTokenId(assetId, id)] == protectorId) return 1;
     } else if (_isSFT(asset)) {
-      return _SFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], id)][protectorId];
+      return _SFTDeposits[_encodeAssetAndTokenId(assetId, id)][protectorId];
     } else if (_isFT(asset)) {
-      return _FTDeposits[_assetIds[asset]][protectorId];
+      return _FTDeposits[assetId][protectorId];
     } else {
       // should never happen
       revert InvalidAsset();
