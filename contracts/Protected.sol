@@ -85,6 +85,7 @@ contract Protected is
     __Ownable_init();
     if (assetRegistry_.code.length == 0) revert NotAContract();
     _assetRegistry = IAssetRegistry(assetRegistry_);
+    __UUPSUpgradeable_init();
   }
 
   function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
