@@ -3,15 +3,14 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../interfaces/IAssetRegistry.sol";
 import "../interfaces/IProtected.sol";
 import "hardhat/console.sol";
 
-contract AssetRegistry is IAssetRegistry, OwnableUpgradeable, UUPSUpgradeable {
+contract AssetRegistry is IAssetRegistry, Ownable {
   mapping(address => uint256) private _assetIds;
   mapping(uint256 => address) private _assetsById;
   uint256 private _lastAssetID; // 24 bits
@@ -22,20 +21,8 @@ contract AssetRegistry is IAssetRegistry, OwnableUpgradeable, UUPSUpgradeable {
     _;
   }
 
-  /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor() {
-    _disableInitializers();
-  }
-
-  function initialize() public initializer {
-    __Ownable_init();
-    __UUPSUpgradeable_init();
-  }
-
-  function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
-
   function registerProtected(address protected_) external onlyOwner {
-    try IERC165Upgradeable(protected_).supportsInterface(type(IProtected).interfaceId) {} catch {
+    try IERC165(protected_).supportsInterface(type(IProtected).interfaceId) {} catch {
       revert NotAProtected();
     }
     // protected cannot be removed, so, be very careful about it

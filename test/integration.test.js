@@ -18,7 +18,7 @@ describe("Integration", function () {
   }
 
   beforeEach(async function () {
-    assetRegistry = await deployContractUpgradeable("AssetRegistry");
+    assetRegistry = await deployContract("AssetRegistry");
 
     e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], {from: deployer});
     await e2.connect(e2Owner).safeMint(bob.address, 1);
