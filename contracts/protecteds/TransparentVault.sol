@@ -8,27 +8,24 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@ndujalabs/erc721subordinate/contracts/ERC721EnumerableSubordinateUpgradeable.sol";
+import "@ndujalabs/erc721subordinate/contracts/ERC721SubordinateUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
-import "./interfaces/IProtected.sol";
-import "./interfaces/IProtector.sol";
-import "./utils/ERC721Receiver.sol";
+import "../interfaces/ITransparentVault.sol";
+import "../interfaces/IProtector.sol";
+import "../utils/ERC721Receiver.sol";
 
 import "hardhat/console.sol";
 
-contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721EnumerableSubordinateUpgradeable, UUPSUpgradeable {
-  modifier onlyProtectorOwner(uint256 protectorId) {
-    if (ownerOf(protectorId) != msg.sender) {
-      revert NotTheProtectorOwner();
-    }
-    _;
-  }
-
-  modifier onlyStarter(uint256 protectorId) {
-    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
-    _;
-  }
+contract TransparentVault is
+  ITransparentVault,
+  ERC721Receiver,
+  OwnableUpgradeable,
+  ERC721SubordinateUpgradeable,
+  UUPSUpgradeable
+{
+  using StringsUpgradeable for uint256;
 
   // By default, only the protector's owner can deposit assets
   // If allowAll is true, anyone can deposit assets
@@ -62,13 +59,27 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
 
   mapping(address => mapping(uint256 => RestrictedTransfer)) private _restrictedTransfers;
 
+  // modifiers
+
+  modifier onlyProtectorOwner(uint256 protectorId) {
+    if (ownerOf(protectorId) != msg.sender) {
+      revert NotTheProtectorOwner();
+    }
+    _;
+  }
+
+  modifier onlyStarter(uint256 protectorId) {
+    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
+    _;
+  }
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
     _disableInitializers();
   }
 
-  function initialize(address protector) public initializer {
-    __ERC721EnumerableSubordinate_init("Protected - Transparent Vault NFT App", "tvNFTa", protector);
+  function initialize(address protector, string memory namePrefix) public initializer {
+    __ERC721Subordinate_init(string(abi.encodePacked(namePrefix, " - Cruna Transparent Vault")), "tvNFTa", protector);
     __Ownable_init();
   }
 
