@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@ndujalabs/erc721subordinate/contracts/ERC721EnumerableSubordinateUpgradeable.sol";
+import "@ndujalabs/erc721subordinate/contracts/ERC721SubordinateUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
@@ -22,7 +22,7 @@ contract TransparentVault is
   ITransparentVault,
   ERC721Receiver,
   OwnableUpgradeable,
-  ERC721EnumerableSubordinateUpgradeable,
+  ERC721SubordinateUpgradeable,
   UUPSUpgradeable
 {
   using StringsUpgradeable for uint256;
@@ -79,7 +79,7 @@ contract TransparentVault is
   }
 
   function initialize(address protector, string memory namePrefix) public initializer {
-    __ERC721EnumerableSubordinate_init(string(abi.encodePacked(namePrefix, " - Cruna Transparent Vault")), "tvNFTa", protector);
+    __ERC721Subordinate_init(string(abi.encodePacked(namePrefix, " - Cruna Transparent Vault")), "tvNFTa", protector);
     __Ownable_init();
   }
 
