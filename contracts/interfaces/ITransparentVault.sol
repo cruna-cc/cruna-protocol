@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-interface IProtected {
+interface ITransparentVault {
   event AllowListUpdated(uint256 indexed protectorId, address indexed account, bool allow);
   event AllowAllUpdated(uint256 indexed protectorId, bool allow);
   event AllowWithConfirmationUpdated(uint256 indexed protectorId, bool allow);
