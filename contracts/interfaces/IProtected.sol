@@ -52,15 +52,16 @@ interface IProtected {
   }
 
   struct WaitingDeposit {
-    // not possible with less than 3 words :-(
+    // not possible with less than 4 words :-(
     uint256 amount;
     //
     TokenType tokenType;
-    uint232 id;
+    uint256 id;
     //
     address sender;
     uint32 timestamp;
-    uint24 assetId;
+    //
+    address asset;
   }
 
   struct RestrictedTransfer {
