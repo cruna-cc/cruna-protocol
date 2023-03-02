@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-interface IProtected {
+interface ITransparentVault {
   event AllowListUpdated(uint256 indexed protectorId, address indexed account, bool allow);
   event AllowAllUpdated(uint256 indexed protectorId, bool allow);
   event AllowWithConfirmationUpdated(uint256 indexed protectorId, bool allow);
@@ -52,15 +52,16 @@ interface IProtected {
   }
 
   struct WaitingDeposit {
-    // not possible with less than 3 words :-(
+    // not possible with less than 4 words :-(
     uint256 amount;
     //
     TokenType tokenType;
-    uint232 id;
+    uint256 id;
     //
     address sender;
     uint32 timestamp;
-    uint24 assetId;
+    //
+    address asset;
   }
 
   struct RestrictedTransfer {

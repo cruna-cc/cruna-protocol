@@ -3,32 +3,27 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@ndujalabs/erc721subordinate/contracts/ERC721EnumerableSubordinateUpgradeable.sol";
+import "@ndujalabs/erc721subordinate/contracts/ERC721SubordinateUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
-import "./interfaces/IProtected.sol";
-import "./interfaces/IProtector.sol";
-import "./utils/ERC721Receiver.sol";
+import "../utils/TokenUtils.sol";
+import "../interfaces/ITransparentVault.sol";
+import "../interfaces/IProtector.sol";
+import "../utils/ERC721Receiver.sol";
 
 import "hardhat/console.sol";
 
-contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721EnumerableSubordinateUpgradeable, UUPSUpgradeable {
-  modifier onlyProtectorOwner(uint256 protectorId) {
-    if (ownerOf(protectorId) != msg.sender) {
-      revert NotTheProtectorOwner();
-    }
-    _;
-  }
-
-  modifier onlyStarter(uint256 protectorId) {
-    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
-    _;
-  }
+contract TransparentVault is
+  ITransparentVault,
+  TokenUtils,
+  ERC721Receiver,
+  OwnableUpgradeable,
+  ERC721SubordinateUpgradeable,
+  UUPSUpgradeable
+{
+  using StringsUpgradeable for uint256;
 
   // By default, only the protector's owner can deposit assets
   // If allowAll is true, anyone can deposit assets
@@ -45,68 +40,52 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
   // allowList and allowWithConfirmation are not mutually exclusive
   // The protector can have an allowList and confirm deposits from other senders
 
-  mapping(address => uint256) private _assetIds;
-  mapping(uint256 => address) private _assetsById;
-  uint256 private _lastAssetID; // 24 bits
-
-  // deposits can change with time, if the amount of the asset increases or decreases
-  // Asset => ID => Protector ID => Amount
-  mapping(address => mapping(uint256 => mapping(uint256 => uint256))) private _deposits;
-
-  // assetIdAndId => protectorId
+  // asset => tokenId => protectorId
   // solhint-disable-next-line var-name-mixedcase
-  mapping(uint256 => uint256) private _NFTDeposits;
+  mapping(address => mapping(uint256 => uint256)) private _NFTDeposits;
 
-  // assetIdAndId => protectorId => amount
+  // asset => tokenId => protectorId => amount
   // solhint-disable-next-line var-name-mixedcase
-  mapping(uint256 => mapping(uint256 => uint256)) private _SFTDeposits;
+  mapping(address => mapping(uint256 => mapping(uint256 => uint256))) private _SFTDeposits;
 
-  // assetId => protectorId => amount
+  // asset => protectorId => amount
   // solhint-disable-next-line var-name-mixedcase
-  mapping(uint256 => mapping(uint256 => uint256)) private _FTDeposits;
+  mapping(address => mapping(uint256 => uint256)) private _FTDeposits;
 
   mapping(uint256 => mapping(uint256 => WaitingDeposit)) private _unconfirmedDeposits;
   uint256 private _unconfirmedDepositsLength;
 
   mapping(address => mapping(uint256 => RestrictedTransfer)) private _restrictedTransfers;
 
+  // modifiers
+
+  modifier onlyProtectorOwner(uint256 protectorId) {
+    if (ownerOf(protectorId) != msg.sender) {
+      revert NotTheProtectorOwner();
+    }
+    _;
+  }
+
+  modifier onlyStarter(uint256 protectorId) {
+    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
+    _;
+  }
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
     _disableInitializers();
   }
 
-  function initialize(address protector) public initializer {
-    __ERC721EnumerableSubordinate_init("Protected - Transparent Vault NFT App", "tvNFTa", protector);
+  function initialize(address protector, string memory namePrefix) public initializer {
+    __ERC721Subordinate_init(string(abi.encodePacked(namePrefix, " - Cruna Transparent Vault")), "tvNFTa", protector);
     __Ownable_init();
   }
 
   function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
-  function _assetId(address asset) private returns (uint256) {
-    uint256 assetId = _assetIds[asset];
-    if (assetId == 0) {
-      assetId = ++_lastAssetID;
-      _assetIds[asset] = assetId;
-      _assetsById[assetId] = asset;
-    }
-    // we assume this will never be larger than 2^24
-    // so we do not check it
-    return assetId;
-  }
-
-  function _encodeAssetAndTokenId(uint256 assetId, uint256 tokenId) private pure returns (uint256) {
-    if (tokenId > type(uint232).max) revert UnsupportedTooLargeTokenId();
-    return (tokenId << 24) | assetId;
-  }
-
-  function _decodeAssetAndTokenId(uint256 encodedAssetIdAndId) private pure returns (uint256, uint256) {
-    return (encodedAssetIdAndId >> 24, uint256(uint24(encodedAssetIdAndId)));
-  }
-
   function ownerOfNFT(address asset, uint256 tokenId) public view returns (address) {
-    if (_assetIds[asset] == 0) revert AssetNotFound();
-    if (_NFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], tokenId)] == 0) revert AssetNotDeposited();
-    return ownerOf(_NFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], tokenId)]);
+    if (_NFTDeposits[asset][tokenId] == 0) revert AssetNotDeposited();
+    return ownerOf(_NFTDeposits[asset][tokenId]);
   }
 
   function configure(
@@ -147,29 +126,6 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     }
   }
 
-  function _isNFT(address asset) private view returns (bool) {
-    try IERC165Upgradeable(asset).supportsInterface(type(IERC721Upgradeable).interfaceId) returns (bool result) {
-      return result;
-    } catch {}
-    return false;
-  }
-
-  function _isFT(address asset) private view returns (bool) {
-    // will revert if asset does not implement IERC165
-    try IERC20Upgradeable(asset).totalSupply() returns (uint256 result) {
-      return result > 0;
-    } catch {}
-    return false;
-  }
-
-  function _isSFT(address asset) private view returns (bool) {
-    // will revert if asset does not implement IERC165
-    try IERC165Upgradeable(asset).supportsInterface(type(IERC1155Upgradeable).interfaceId) returns (bool result) {
-      return result;
-    } catch {}
-    return false;
-  }
-
   function _validateAndEmitEvent(
     uint256 protectorId,
     address asset,
@@ -179,17 +135,17 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
   ) internal {
     if (ownerOf(protectorId) == _msgSender() || _allowAll[protectorId] || _allowList[protectorId][_msgSender()]) {
       if (tokenType == TokenType.ERC721) {
-        _NFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)] = protectorId;
+        _NFTDeposits[asset][id] = protectorId;
       } else if (tokenType == TokenType.ERC1155) {
-        _SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] += amount;
+        _SFTDeposits[asset][id][protectorId] += amount;
       } else if (tokenType == TokenType.ERC20) {
-        _FTDeposits[_assetId(asset)][protectorId] += amount;
+        _FTDeposits[asset][protectorId] += amount;
       }
       emit Deposit(protectorId, asset, id, amount);
     } else if (_allowWithConfirmation[protectorId]) {
       _unconfirmedDeposits[protectorId][_unconfirmedDepositsLength] = WaitingDeposit({
         sender: _msgSender(),
-        assetId: uint24(_assetId(asset)),
+        asset: asset,
         id: uint232(id),
         amount: amount,
         timestamp: uint32(block.timestamp),
@@ -235,13 +191,13 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     WaitingDeposit memory deposit = _unconfirmedDeposits[protectorId][index];
     if (deposit.timestamp + 1 weeks < block.timestamp) revert UnconfirmedDepositExpired();
     if (deposit.tokenType == TokenType.ERC721) {
-      _NFTDeposits[_encodeAssetAndTokenId(deposit.assetId, deposit.id)] = protectorId;
+      _NFTDeposits[deposit.asset][deposit.id] = protectorId;
     } else if (deposit.tokenType == TokenType.ERC1155) {
-      _SFTDeposits[_encodeAssetAndTokenId(deposit.assetId, deposit.id)][protectorId] += deposit.amount;
+      _SFTDeposits[deposit.asset][deposit.id][protectorId] += deposit.amount;
     } else if (deposit.tokenType == TokenType.ERC20) {
-      _FTDeposits[deposit.assetId][protectorId] += deposit.amount;
+      _FTDeposits[deposit.asset][protectorId] += deposit.amount;
     }
-    emit Deposit(protectorId, _assetsById[deposit.assetId], deposit.id, deposit.amount);
+    emit Deposit(protectorId, deposit.asset, deposit.id, deposit.amount);
     delete _unconfirmedDeposits[protectorId][index];
   }
 
@@ -250,13 +206,12 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     if (deposit.sender != _msgSender()) revert NotTheDepositer();
     if (deposit.timestamp + 1 weeks > block.timestamp) revert UnconfirmedDepositNotExpiredYet();
     delete _unconfirmedDeposits[protectorId][index];
-    address asset = _assetsById[deposit.assetId];
     if (deposit.tokenType == TokenType.ERC721) {
-      IERC721Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), deposit.id);
+      IERC721Upgradeable(deposit.asset).safeTransferFrom(address(this), _msgSender(), deposit.id);
     } else if (deposit.tokenType == TokenType.ERC20) {
-      IERC20Upgradeable(asset).transfer(_msgSender(), deposit.amount);
+      IERC20Upgradeable(deposit.asset).transfer(_msgSender(), deposit.amount);
     } else if (deposit.tokenType == TokenType.ERC1155) {
-      IERC1155Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), deposit.id, deposit.amount, "");
+      IERC1155Upgradeable(deposit.asset).safeTransferFrom(address(this), _msgSender(), deposit.id, deposit.amount, "");
     } else {
       // should never happen
       revert InvalidAsset();
@@ -270,24 +225,24 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     uint256 id,
     uint256 amount
   ) internal {
-    if (_isNFT(asset)) {
-      if (_NFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)] != protectorId) revert NotTheDepositer();
-      _NFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)] = recipientProtectorId;
-    } else if (_isSFT(asset)) {
-      if (_SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] < amount) revert InsufficientBalance();
-      _SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][recipientProtectorId] += amount;
-      if (_SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] - amount > 0) {
-        _SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] -= amount;
+    if (isNFT(asset)) {
+      if (_NFTDeposits[asset][id] != protectorId) revert NotTheDepositer();
+      _NFTDeposits[asset][id] = recipientProtectorId;
+    } else if (isSFT(asset)) {
+      if (_SFTDeposits[asset][id][protectorId] < amount) revert InsufficientBalance();
+      _SFTDeposits[asset][id][recipientProtectorId] += amount;
+      if (_SFTDeposits[asset][id][protectorId] - amount > 0) {
+        _SFTDeposits[asset][id][protectorId] -= amount;
       } else {
-        delete _SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId];
+        delete _SFTDeposits[asset][id][protectorId];
       }
-    } else if (_isFT(asset)) {
-      if (_FTDeposits[_assetId(asset)][protectorId] < amount) revert InsufficientBalance();
-      _FTDeposits[_assetId(asset)][recipientProtectorId] += amount;
-      if (_FTDeposits[_assetId(asset)][protectorId] - amount > 0) {
-        _FTDeposits[_assetId(asset)][protectorId] -= amount;
+    } else if (isFT(asset)) {
+      if (_FTDeposits[asset][protectorId] < amount) revert InsufficientBalance();
+      _FTDeposits[asset][recipientProtectorId] += amount;
+      if (_FTDeposits[asset][protectorId] - amount > 0) {
+        _FTDeposits[asset][protectorId] -= amount;
       } else {
-        delete _FTDeposits[_assetId(asset)][protectorId];
+        delete _FTDeposits[asset][protectorId];
       }
     } else {
       // should never happen
@@ -321,12 +276,12 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     uint32 validFor
   ) external override onlyStarter(protectorId) {
     if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
-    if (_isNFT(asset)) {
-      if (_NFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)] != protectorId) revert NotTheDepositer();
-    } else if (_isSFT(asset)) {
-      if (_SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] < amount) revert InsufficientBalance();
-    } else if (_isFT(asset)) {
-      if (_FTDeposits[_assetId(asset)][protectorId] < amount) revert InsufficientBalance();
+    if (isNFT(asset)) {
+      if (_NFTDeposits[asset][id] != protectorId) revert NotTheDepositer();
+    } else if (isSFT(asset)) {
+      if (_SFTDeposits[asset][id][protectorId] < amount) revert InsufficientBalance();
+    } else if (isFT(asset)) {
+      if (_FTDeposits[asset][protectorId] < amount) revert InsufficientBalance();
     } else {
       // should never happen
       revert InvalidAsset();
@@ -369,24 +324,24 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     uint256 id,
     uint256 amount
   ) external override onlyProtectorOwner(protectorId) {
-    if (_isNFT(asset)) {
-      if (_NFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)] != protectorId) revert NotTheDepositer();
-      delete _NFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)];
+    if (isNFT(asset)) {
+      if (_NFTDeposits[asset][id] != protectorId) revert NotTheDepositer();
+      delete _NFTDeposits[asset][id];
       IERC721Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), id);
-    } else if (_isSFT(asset)) {
-      if (_SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] < amount) revert InsufficientBalance();
-      if (_SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] - amount > 0) {
-        _SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId] -= amount;
+    } else if (isSFT(asset)) {
+      if (_SFTDeposits[asset][id][protectorId] < amount) revert InsufficientBalance();
+      if (_SFTDeposits[asset][id][protectorId] - amount > 0) {
+        _SFTDeposits[asset][id][protectorId] -= amount;
       } else {
-        delete _SFTDeposits[_encodeAssetAndTokenId(_assetId(asset), id)][protectorId];
+        delete _SFTDeposits[asset][id][protectorId];
       }
       IERC1155Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), id, amount, "");
-    } else if (_isFT(asset)) {
-      if (_FTDeposits[_assetId(asset)][protectorId] < amount) revert InsufficientBalance();
-      if (_FTDeposits[_assetId(asset)][protectorId] - amount > 0) {
-        _FTDeposits[_assetId(asset)][protectorId] -= amount;
+    } else if (isFT(asset)) {
+      if (_FTDeposits[asset][protectorId] < amount) revert InsufficientBalance();
+      if (_FTDeposits[asset][protectorId] - amount > 0) {
+        _FTDeposits[asset][protectorId] -= amount;
       } else {
-        delete _FTDeposits[_assetId(asset)][protectorId];
+        delete _FTDeposits[asset][protectorId];
       }
       IERC20Upgradeable(asset).transfer(_msgSender(), amount);
     } else {
@@ -400,17 +355,17 @@ contract Protected is IProtected, ERC721Receiver, OwnableUpgradeable, ERC721Enum
     address asset,
     uint256 id
   ) external view override returns (uint256) {
-    if (_assetIds[asset] == 0) {
-      return 0;
-    } else if (_isNFT(asset)) {
-      if (_NFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], id)] == protectorId) return 1;
-    } else if (_isSFT(asset)) {
-      return _SFTDeposits[_encodeAssetAndTokenId(_assetIds[asset], id)][protectorId];
-    } else if (_isFT(asset)) {
-      return _FTDeposits[_assetIds[asset]][protectorId];
-    } else {
-      // should never happen
-      revert InvalidAsset();
+    if (asset != address(0)) {
+      if (isNFT(asset)) {
+        if (_NFTDeposits[asset][id] == protectorId) return 1;
+      } else if (isSFT(asset)) {
+        return _SFTDeposits[asset][id][protectorId];
+      } else if (isFT(asset)) {
+        return _FTDeposits[asset][protectorId];
+      } else {
+        // should never happen
+        revert InvalidAsset();
+      }
     }
     // to silence a compiler warning
     return 0;
