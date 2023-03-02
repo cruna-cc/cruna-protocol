@@ -31,8 +31,8 @@ contract Protector is
   mapping(uint256 => bool) private _approvable;
 
   // the address of a second wallet required to start the transfer of a token
-  // owner >> starter >> approved
-  mapping(address => Starter) private _starters;
+  // owner >> initiator >> approved
+  mapping(address => Initiator) private _initiators;
 
   // the address of the owner given the second wallet required to start the transfer
   mapping(address => address) private _ownersByStarter;
@@ -53,7 +53,7 @@ contract Protector is
   }
 
   modifier notTheStarter(address owner_) {
-    if (_starters[owner_].starter != _msgSender()) revert NotStarter();
+    if (_initiators[owner_].initiator != _msgSender()) revert NotStarter();
     _;
   }
 
@@ -88,7 +88,7 @@ contract Protector is
     uint256 tokenId,
     uint256 batchSize
   ) internal virtual override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
-    if (_starters[from].status > Status.PENDING && !_controlledTransfers[tokenId].approved) {
+    if (_initiators[from].status > Status.PENDING && !_controlledTransfers[tokenId].approved) {
       revert TransferNotPermitted();
     }
     super._beforeTokenTransfer(from, to, tokenId, batchSize);
@@ -171,12 +171,12 @@ contract Protector is
 
   // Manage transfer initializers
 
-  function starterFor(address owner_) external view override returns (address) {
-    return _starters[owner_].status > Status.ACTIVE ? _starters[owner_].starter : address(0);
+  function initiatorFor(address owner_) external view override returns (address) {
+    return _initiators[owner_].status > Status.ACTIVE ? _initiators[owner_].initiator : address(0);
   }
 
   function hasStarter(address owner_) external view override returns (bool) {
-    return _starters[owner_].status > Status.PENDING;
+    return _initiators[owner_].status > Status.PENDING;
   }
 
   function isStarterFor(address wallet) external view override returns (address) {
@@ -184,8 +184,8 @@ contract Protector is
   }
 
   function _removeExistingStarter(address owner_) private {
-    delete _ownersByStarter[_starters[owner_].starter];
-    delete _starters[owner_];
+    delete _ownersByStarter[_initiators[owner_].initiator];
+    delete _initiators[owner_];
   }
 
   // Since the transfer initializer is by owner, we do not check if they
@@ -193,20 +193,20 @@ contract Protector is
   // A wallet can be the transfer initializer for a single owner.
   // However, wallet A can be the TI for wallet B, while at same time,
   // wallet B can be the TI for wallet A.
-  function setStarter(address starter) external virtual override {
-    if (starter == address(0)) revert InvalidAddress();
-    if (_ownersByStarter[starter] != address(0)) {
-      if (_ownersByStarter[starter] == _msgSender()) revert StarterAlreadySetByYou();
+  function setStarter(address initiator) external virtual override {
+    if (initiator == address(0)) revert InvalidAddress();
+    if (_ownersByStarter[initiator] != address(0)) {
+      if (_ownersByStarter[initiator] == _msgSender()) revert StarterAlreadySetByYou();
       else revert AssociatedToAnotherOwner();
     }
-    if (_starters[_msgSender()].status != Status.UNSET) revert StarterAlreadySet();
-    _starters[_msgSender()] = Starter({starter: starter, status: Status.PENDING});
-    emit StarterStarted(_msgSender(), starter, true);
+    if (_initiators[_msgSender()].status != Status.UNSET) revert StarterAlreadySet();
+    _initiators[_msgSender()] = Initiator({initiator: initiator, status: Status.PENDING});
+    emit StarterStarted(_msgSender(), initiator, true);
   }
 
   function _validatePendingStarter(address owner_) private view {
-    if (_starters[owner_].starter != _msgSender()) revert NotTheStarter();
-    if (_starters[owner_].status != Status.PENDING) revert PendingStarterNotFound();
+    if (_initiators[owner_].initiator != _msgSender()) revert NotTheStarter();
+    if (_initiators[owner_].status != Status.PENDING) revert PendingStarterNotFound();
   }
 
   // must be called by the transfer initializer
@@ -217,7 +217,7 @@ contract Protector is
       // set and the confirmation
       revert AssociatedToAnotherOwner();
     }
-    _starters[owner_].status = Status.ACTIVE;
+    _initiators[owner_].status = Status.ACTIVE;
     _ownersByStarter[_msgSender()] = owner_;
     emit StarterUpdated(owner_, _msgSender(), true);
   }
@@ -229,29 +229,29 @@ contract Protector is
   }
 
   function unsetStarter() external virtual {
-    if (_starters[_msgSender()].status == Status.UNSET) revert StarterNotFound();
-    if (_starters[_msgSender()].status == Status.REMOVABLE) revert UnsetAlreadyStarted();
-    if (_starters[_msgSender()].status == Status.ACTIVE) {
-      // require confirmation by the starter
-      _starters[_msgSender()].status = Status.REMOVABLE;
-      emit StarterStarted(_msgSender(), _starters[_msgSender()].starter, false);
+    if (_initiators[_msgSender()].status == Status.UNSET) revert StarterNotFound();
+    if (_initiators[_msgSender()].status == Status.REMOVABLE) revert UnsetAlreadyStarted();
+    if (_initiators[_msgSender()].status == Status.ACTIVE) {
+      // require confirmation by the initiator
+      _initiators[_msgSender()].status = Status.REMOVABLE;
+      emit StarterStarted(_msgSender(), _initiators[_msgSender()].initiator, false);
     } else {
       // can be removed without confirmation
-      emit StarterUpdated(_msgSender(), _starters[_msgSender()].starter, false);
+      emit StarterUpdated(_msgSender(), _initiators[_msgSender()].initiator, false);
       _removeExistingStarter(_msgSender());
     }
   }
 
   function confirmUnsetStarter(address owner_) external virtual {
-    if (_starters[owner_].starter != _msgSender()) revert NotStarter();
-    if (_starters[owner_].status != Status.REMOVABLE) revert UnsetNotStarted();
+    if (_initiators[owner_].initiator != _msgSender()) revert NotStarter();
+    if (_initiators[owner_].status != Status.REMOVABLE) revert UnsetNotStarted();
     emit StarterUpdated(owner_, _msgSender(), false);
     _removeExistingStarter(owner_);
   }
 
   function hasStarter(uint256 tokenId) public view virtual override returns (bool) {
     address owner_ = ownerOf(tokenId);
-    return _starters[owner_].status > Status.PENDING;
+    return _initiators[owner_].status > Status.PENDING;
   }
 
   // to reduce gas, we expect that the transfer is initiated by transfer initializer
@@ -265,11 +265,11 @@ contract Protector is
     address owner_ = _ownersByStarter[_msgSender()];
     if (owner_ == address(0)) revert NotStarter();
     if (ownerOf(tokenId) != owner_) revert NotOwnByRelatedOwner();
-    if (_controlledTransfers[tokenId].starter != address(0) && _controlledTransfers[tokenId].expiresAt > block.timestamp)
+    if (_controlledTransfers[tokenId].initiator != address(0) && _controlledTransfers[tokenId].expiresAt > block.timestamp)
       revert TokenAlreadyBeingTransferred();
     // else a previous transfer is expired or it was set by another transfer initializer
     _controlledTransfers[tokenId] = ControlledTransfer({
-      starter: _msgSender(),
+      initiator: _msgSender(),
       to: to,
       expiresAt: uint32(block.timestamp + validFor),
       approved: false
@@ -281,7 +281,7 @@ contract Protector is
   function completeTransfer(uint256 tokenId) external virtual override {
     if (
       // the transfer initializer has changed since the transfer started
-      _controlledTransfers[tokenId].starter != _starters[_msgSender()].starter ||
+      _controlledTransfers[tokenId].initiator != _initiators[_msgSender()].initiator ||
       // the transfer is expired
       _controlledTransfers[tokenId].expiresAt < block.timestamp
     ) {
