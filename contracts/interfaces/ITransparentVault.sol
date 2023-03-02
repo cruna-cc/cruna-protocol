@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-interface IProtected {
+interface ITransparentVault {
   event AllowListUpdated(uint256 indexed protectorId, address indexed account, bool allow);
   event AllowAllUpdated(uint256 indexed protectorId, bool allow);
   event AllowWithConfirmationUpdated(uint256 indexed protectorId, bool allow);
@@ -29,23 +29,39 @@ interface IProtected {
   error InvalidAsset();
   error InvalidAmount();
   error InvalidId();
-  error Unauthorized();
+  error NotTheDepositer();
   error UnconfirmedDepositExpired();
   error InconsistentLengths();
   error UnconfirmedDepositNotExpiredYet();
   error InsufficientBalance();
   error TransferFailed();
-  error NotAllowedWhenTransferInitializer();
+  error NotAllowedWhenStarter();
   error InvalidTransfer();
-  error NotTheTransferInitializer();
+  error NotTheStarter();
   error AssetAlreadyBeingTransferred();
+  error NotTheProtectorOwner();
+  error AssetNotFound();
+  error AssetNotDeposited();
+  error UnsupportedTooLargeTokenId();
+
+  enum TokenType {
+    ERC20,
+    ERC721,
+    ERC1155,
+    ERC777
+  }
 
   struct WaitingDeposit {
-    address sender;
-    address asset;
-    uint256 id;
+    // not possible with less than 4 words :-(
     uint256 amount;
-    uint256 timestamp;
+    //
+    TokenType tokenType;
+    uint256 id;
+    //
+    address sender;
+    uint32 timestamp;
+    //
+    address asset;
   }
 
   struct RestrictedTransfer {
@@ -99,6 +115,23 @@ interface IProtected {
     uint256 amount
   ) external;
 
+  function startTransferAsset(
+    uint256 protectorId,
+    uint256 recipientProtectorId,
+    address asset,
+    uint256 id,
+    uint256 amount,
+    uint32 validFor
+  ) external;
+
+  function completeTransferAsset(
+    uint256 protectorId,
+    uint256 recipientProtectorId,
+    address asset,
+    uint256 id,
+    uint256 amount
+  ) external;
+
   function withdrawAsset(
     uint256 protectorId,
     address asset,
@@ -106,7 +139,7 @@ interface IProtected {
     uint256 amount
   ) external;
 
-  function ownsAsset(
+  function ownedAssetAmount(
     uint256 protectorId,
     address asset,
     uint256 id
