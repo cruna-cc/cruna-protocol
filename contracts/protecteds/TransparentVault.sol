@@ -3,15 +3,12 @@ pragma solidity ^0.8.17;
 
 // Author: Francesco Sullo <francesco@sullo.co>
 
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@ndujalabs/erc721subordinate/contracts/ERC721SubordinateUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
+import "../utils/TokenUtils.sol";
 import "../interfaces/ITransparentVault.sol";
 import "../interfaces/IProtector.sol";
 import "../utils/ERC721Receiver.sol";
@@ -20,6 +17,7 @@ import "hardhat/console.sol";
 
 contract TransparentVault is
   ITransparentVault,
+  TokenUtils,
   ERC721Receiver,
   OwnableUpgradeable,
   ERC721SubordinateUpgradeable,
@@ -128,32 +126,6 @@ contract TransparentVault is
     }
   }
 
-  function _isNFT(address asset) private view returns (bool) {
-    try IERC165Upgradeable(asset).supportsInterface(type(IERC721Upgradeable).interfaceId) returns (bool result) {
-      return result;
-    } catch {}
-    return false;
-  }
-
-  function _isFT(address asset) private view returns (bool) {
-    // It should work fine with ERC777.
-    // Unfortunately, it will be true also if the token is and ERC721 enumerable
-    // but later any attempt of transfer will revert because of the different signature
-    // of the transfer function
-    try IERC20Upgradeable(asset).totalSupply() returns (uint256 result) {
-      return result > 0;
-    } catch {}
-    return false;
-  }
-
-  function _isSFT(address asset) private view returns (bool) {
-    // will revert if asset does not implement IERC165
-    try IERC165Upgradeable(asset).supportsInterface(type(IERC1155Upgradeable).interfaceId) returns (bool result) {
-      return result;
-    } catch {}
-    return false;
-  }
-
   function _validateAndEmitEvent(
     uint256 protectorId,
     address asset,
@@ -253,10 +225,10 @@ contract TransparentVault is
     uint256 id,
     uint256 amount
   ) internal {
-    if (_isNFT(asset)) {
+    if (isNFT(asset)) {
       if (_NFTDeposits[asset][id] != protectorId) revert NotTheDepositer();
       _NFTDeposits[asset][id] = recipientProtectorId;
-    } else if (_isSFT(asset)) {
+    } else if (isSFT(asset)) {
       if (_SFTDeposits[asset][id][protectorId] < amount) revert InsufficientBalance();
       _SFTDeposits[asset][id][recipientProtectorId] += amount;
       if (_SFTDeposits[asset][id][protectorId] - amount > 0) {
@@ -264,7 +236,7 @@ contract TransparentVault is
       } else {
         delete _SFTDeposits[asset][id][protectorId];
       }
-    } else if (_isFT(asset)) {
+    } else if (isFT(asset)) {
       if (_FTDeposits[asset][protectorId] < amount) revert InsufficientBalance();
       _FTDeposits[asset][recipientProtectorId] += amount;
       if (_FTDeposits[asset][protectorId] - amount > 0) {
@@ -304,11 +276,11 @@ contract TransparentVault is
     uint32 validFor
   ) external override onlyStarter(protectorId) {
     if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
-    if (_isNFT(asset)) {
+    if (isNFT(asset)) {
       if (_NFTDeposits[asset][id] != protectorId) revert NotTheDepositer();
-    } else if (_isSFT(asset)) {
+    } else if (isSFT(asset)) {
       if (_SFTDeposits[asset][id][protectorId] < amount) revert InsufficientBalance();
-    } else if (_isFT(asset)) {
+    } else if (isFT(asset)) {
       if (_FTDeposits[asset][protectorId] < amount) revert InsufficientBalance();
     } else {
       // should never happen
@@ -352,11 +324,11 @@ contract TransparentVault is
     uint256 id,
     uint256 amount
   ) external override onlyProtectorOwner(protectorId) {
-    if (_isNFT(asset)) {
+    if (isNFT(asset)) {
       if (_NFTDeposits[asset][id] != protectorId) revert NotTheDepositer();
       delete _NFTDeposits[asset][id];
       IERC721Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), id);
-    } else if (_isSFT(asset)) {
+    } else if (isSFT(asset)) {
       if (_SFTDeposits[asset][id][protectorId] < amount) revert InsufficientBalance();
       if (_SFTDeposits[asset][id][protectorId] - amount > 0) {
         _SFTDeposits[asset][id][protectorId] -= amount;
@@ -364,7 +336,7 @@ contract TransparentVault is
         delete _SFTDeposits[asset][id][protectorId];
       }
       IERC1155Upgradeable(asset).safeTransferFrom(address(this), _msgSender(), id, amount, "");
-    } else if (_isFT(asset)) {
+    } else if (isFT(asset)) {
       if (_FTDeposits[asset][protectorId] < amount) revert InsufficientBalance();
       if (_FTDeposits[asset][protectorId] - amount > 0) {
         _FTDeposits[asset][protectorId] -= amount;
@@ -384,11 +356,11 @@ contract TransparentVault is
     uint256 id
   ) external view override returns (uint256) {
     if (asset != address(0)) {
-      if (_isNFT(asset)) {
+      if (isNFT(asset)) {
         if (_NFTDeposits[asset][id] == protectorId) return 1;
-      } else if (_isSFT(asset)) {
+      } else if (isSFT(asset)) {
         return _SFTDeposits[asset][id][protectorId];
-      } else if (_isFT(asset)) {
+      } else if (isFT(asset)) {
         return _FTDeposits[asset][protectorId];
       } else {
         // should never happen
