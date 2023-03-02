@@ -2,7 +2,7 @@ const {expect} = require("chai");
 const {deployContractUpgradeable, deployContract, amount, assertThrowsMessage} = require("./helpers");
 
 describe("Integration", function () {
-  let e2, e2Protected;
+  let everdragons2Protector, everdragons2TransparentVault;
   // mocks
   let bulls, particle, fatBelly, stupidMonk, uselessWeapons;
   // wallets
@@ -17,15 +17,18 @@ describe("Integration", function () {
   }
 
   beforeEach(async function () {
-    e2 = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], {from: deployer});
-    await e2.connect(e2Owner).safeMint(bob.address, 1);
-    await e2.connect(e2Owner).safeMint(bob.address, 2);
-    await e2.connect(e2Owner).safeMint(bob.address, 3);
-    await e2.connect(e2Owner).safeMint(bob.address, 4);
-    await e2.connect(e2Owner).safeMint(alice.address, 5);
-    await e2.connect(e2Owner).safeMint(alice.address, 6);
+    everdragons2Protector = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], {from: deployer});
+    await everdragons2Protector.connect(e2Owner).safeMint(bob.address, 1);
+    await everdragons2Protector.connect(e2Owner).safeMint(bob.address, 2);
+    await everdragons2Protector.connect(e2Owner).safeMint(bob.address, 3);
+    await everdragons2Protector.connect(e2Owner).safeMint(bob.address, 4);
+    await everdragons2Protector.connect(e2Owner).safeMint(alice.address, 5);
+    await everdragons2Protector.connect(e2Owner).safeMint(alice.address, 6);
 
-    e2Protected = await deployContractUpgradeable("Protected", [e2.address]);
+    everdragons2TransparentVault = await deployContractUpgradeable("TransparentVault", [
+      everdragons2Protector.address,
+      "Everdragons2",
+    ]);
 
     // erc20
     bulls = await deployContract("Bulls");
@@ -59,83 +62,115 @@ describe("Integration", function () {
   });
 
   async function configure(protectorId, allowAll_, allowWithConfirmation_, allowList_, allowListStatus_) {
-    await e2Protected.configure(protectorId, allowAll_, allowWithConfirmation_, allowList_, allowListStatus_);
+    await everdragons2TransparentVault.configure(protectorId, allowAll_, allowWithConfirmation_, allowList_, allowListStatus_);
+    expect(await everdragons2TransparentVault.name()).equal("Everdragons2 - Cruna Transparent Vault");
+    expect(await everdragons2TransparentVault.symbol()).equal("tvNFTa");
   }
 
   it("should allow the deployer to upgrade the contract", async function () {
-    expect(await e2.version()).equal("1.0.0");
+    expect(await everdragons2Protector.version()).equal("1.0.0");
     const e2V2 = await ethers.getContractFactory("Everdragons2ProtectorV2");
     const newImplementation = await e2V2.deploy();
     await newImplementation.deployed();
-    expect(await newImplementation.getId()).equal("0xca298e54");
-    await e2.connect(deployer).upgradeTo(newImplementation.address);
-    expect(await e2.version()).equal("2.0.0");
+    expect(await newImplementation.getId()).equal("0xf98e5a0b");
+    await everdragons2Protector.connect(deployer).upgradeTo(newImplementation.address);
+    expect(await everdragons2Protector.version()).equal("2.0.0");
   });
 
   it("should not allow the owner to upgrade the contract", async function () {
-    expect(await e2.version()).equal("1.0.0");
+    expect(await everdragons2Protector.version()).equal("1.0.0");
     const e2V2 = await ethers.getContractFactory("Everdragons2ProtectorV2");
     const newImplementation = await e2V2.deploy();
     await newImplementation.deployed();
-    await assertThrowsMessage(e2.connect(e2Owner).upgradeTo(newImplementation.address), "NotTheContractDeployer()");
+    await assertThrowsMessage(
+      everdragons2Protector.connect(e2Owner).upgradeTo(newImplementation.address),
+      "NotTheContractDeployer()"
+    );
   });
 
   it("should create a vault and add more assets to it", async function () {
     // bob creates a vault depositing a particle token
-    await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
-    await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
-    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+    await particle.connect(bob).setApprovalForAll(everdragons2TransparentVault.address, true);
+    await everdragons2TransparentVault.connect(bob).depositNFT(1, particle.address, 2);
+    expect(await everdragons2TransparentVault.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
     // bob adds a stupidMonk token to his vault
-    await stupidMonk.connect(bob).setApprovalForAll(e2Protected.address, true);
-    await e2Protected.connect(bob).depositNFT(1, stupidMonk.address, 1);
-    expect(await e2Protected.ownsAsset(1, stupidMonk.address, 1)).equal(1);
+    await stupidMonk.connect(bob).setApprovalForAll(everdragons2TransparentVault.address, true);
+    await everdragons2TransparentVault.connect(bob).depositNFT(1, stupidMonk.address, 1);
+    expect(await everdragons2TransparentVault.ownedAssetAmount(1, stupidMonk.address, 1)).equal(1);
 
     // bob adds some bulls tokens to his vault
-    await bulls.connect(bob).approve(e2Protected.address, amount("10000"));
-    await e2Protected.connect(bob).depositFT(1, bulls.address, amount("5000"));
-    expect(await e2Protected.ownsAsset(1, bulls.address, 0)).equal(amount("5000"));
+    await bulls.connect(bob).approve(everdragons2TransparentVault.address, amount("10000"));
+    await everdragons2TransparentVault.connect(bob).depositFT(1, bulls.address, amount("5000"));
+    expect(await everdragons2TransparentVault.ownedAssetAmount(1, bulls.address, 0)).equal(amount("5000"));
 
     // the protected cannot be transferred
-    await expect(transferNft(e2Protected, bob)(bob.address, alice.address, 1)).revertedWith(
+    await expect(transferNft(everdragons2TransparentVault, bob)(bob.address, alice.address, 1)).revertedWith(
       "ERC721Subordinate: transfers not allowed"
     );
 
     // bob transfers the protector to alice
-    await expect(transferNft(e2, bob)(bob.address, alice.address, 1))
-      .emit(e2, "Transfer")
+    await expect(transferNft(everdragons2Protector, bob)(bob.address, alice.address, 1))
+      .emit(everdragons2Protector, "Transfer")
       .withArgs(bob.address, alice.address, 1);
   });
 
-  it("should not allow a transfer if a transfer initializer is set", async function () {
+  it("should allow a transfer if a transfer initializer is pending", async function () {
     // bob creates a vault depositing a particle token
-    await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
-    await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
-    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+    await particle.connect(bob).setApprovalForAll(everdragons2TransparentVault.address, true);
+    await everdragons2TransparentVault.connect(bob).depositNFT(1, particle.address, 2);
+    expect(await everdragons2TransparentVault.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
-    await expect(e2.connect(bob).setTransferInitializer(mark.address))
-      .emit(e2, "TransferInitializerChanged")
+    await expect(everdragons2Protector.connect(bob).setStarter(mark.address))
+      .emit(everdragons2Protector, "StarterStarted")
       .withArgs(bob.address, mark.address, true);
 
-    await expect(transferNft(e2, bob)(bob.address, alice.address, 1)).revertedWith("TransferNotPermitted()");
+    // bob transfers the protector to alice
+    await expect(transferNft(everdragons2Protector, bob)(bob.address, alice.address, 1))
+      .emit(everdragons2Protector, "Transfer")
+      .withArgs(bob.address, alice.address, 1);
+  });
+
+  it("should not allow a transfer if a transfer initializer is active", async function () {
+    // bob creates a vault depositing a particle token
+    await particle.connect(bob).setApprovalForAll(everdragons2TransparentVault.address, true);
+    await everdragons2TransparentVault.connect(bob).depositNFT(1, particle.address, 2);
+    expect(await everdragons2TransparentVault.ownedAssetAmount(1, particle.address, 2)).equal(1);
+
+    await expect(everdragons2Protector.connect(bob).setStarter(mark.address))
+      .emit(everdragons2Protector, "StarterStarted")
+      .withArgs(bob.address, mark.address, true);
+
+    await expect(everdragons2Protector.connect(mark).confirmStarter(bob.address))
+      .emit(everdragons2Protector, "StarterUpdated")
+      .withArgs(bob.address, mark.address, true);
+
+    await expect(transferNft(everdragons2Protector, bob)(bob.address, alice.address, 1)).revertedWith("TransferNotPermitted()");
   });
 
   it("should allow a transfer if the transfer initializer starts it", async function () {
     // bob creates a vault depositing a particle token
-    await particle.connect(bob).setApprovalForAll(e2Protected.address, true);
-    await e2Protected.connect(bob).depositNFT(1, particle.address, 2);
-    expect(await e2Protected.ownsAsset(1, particle.address, 2)).equal(1);
+    await particle.connect(bob).setApprovalForAll(everdragons2TransparentVault.address, true);
+    await everdragons2TransparentVault.connect(bob).depositNFT(1, particle.address, 2);
+    expect(await everdragons2TransparentVault.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
-    await expect(e2.connect(bob).setTransferInitializer(mark.address))
-      .emit(e2, "TransferInitializerChanged")
+    await expect(everdragons2Protector.connect(bob).setStarter(mark.address))
+      .emit(everdragons2Protector, "StarterStarted")
       .withArgs(bob.address, mark.address, true);
 
-    await expect(e2.connect(mark).startTransfer(1, alice.address, 1000))
-      .emit(e2, "TransferStarted")
+    await expect(everdragons2Protector.connect(mark).confirmStarter(bob.address))
+      .emit(everdragons2Protector, "StarterUpdated")
+      .withArgs(bob.address, mark.address, true);
+
+    await expect(everdragons2Protector.connect(mark).startTransfer(1, alice.address, 1000))
+      .emit(everdragons2Protector, "TransferStarted")
       .withArgs(mark.address, 1, alice.address);
 
-    await expect(e2.connect(bob).completeTransfer(1)).emit(e2, "Transfer").withArgs(bob.address, alice.address, 1);
+    await expect(everdragons2Protector.connect(bob).completeTransfer(1))
+      .emit(everdragons2Protector, "Transfer")
+      .withArgs(bob.address, alice.address, 1);
 
-    expect(await e2.ownerOf(1)).equal(alice.address);
+    expect(await everdragons2Protector.ownerOf(1)).equal(alice.address);
+    expect(await everdragons2TransparentVault.ownerOf(1)).equal(alice.address);
   });
 });

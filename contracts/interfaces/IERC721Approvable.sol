@@ -8,7 +8,7 @@ pragma solidity ^0.8.17;
 // requiring a second factor (a second signature, etc.).
 // However, some tokens can be made approvable, so that
 // they can be traded on exchanges.
-// The interfaceId is 0xca298e54
+// The interfaceId is 0xf98e5a0b
 
 interface IERC721Approvable {
   // Must be emitted any time the status changes.  However,
@@ -17,10 +17,6 @@ interface IERC721Approvable {
   // In other words, as long as an Approvable event is not emitted,
   // for a token ID, the defaultApprovable should be assumed.
   event Approvable(uint256 indexed tokenId, bool approvable);
-
-  // It makes a token approvable or not approvable.
-  // It must emit the Approvable event.
-  function makeApprovable(uint256 tokenId, bool status) external;
 
   // Returns true if the token is approvable.
   // It should revert if the token does not exist.
