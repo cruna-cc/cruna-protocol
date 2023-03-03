@@ -7,7 +7,7 @@ A protocol to manage application NFTs, born from the collaboration between [The 
 **0.1.3**
 
 - Renaming the protocol
-- Separating the implementations in the `protecteds` folder
+- Separating the implementations in the `protected` folder
 
 **0.1.2**
 
