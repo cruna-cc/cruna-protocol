@@ -121,8 +121,8 @@ describe("Integration", function () {
     await everdragons2TransparentVault.connect(bob).depositNFT(1, particle.address, 2);
     expect(await everdragons2TransparentVault.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
-    await expect(everdragons2Protector.connect(bob).setStarter(mark.address))
-      .emit(everdragons2Protector, "StarterStarted")
+    await expect(everdragons2Protector.connect(bob).setInitiator(mark.address))
+      .emit(everdragons2Protector, "InitiatorStarted")
       .withArgs(bob.address, mark.address, true);
 
     // bob transfers the protector to alice
@@ -137,12 +137,12 @@ describe("Integration", function () {
     await everdragons2TransparentVault.connect(bob).depositNFT(1, particle.address, 2);
     expect(await everdragons2TransparentVault.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
-    await expect(everdragons2Protector.connect(bob).setStarter(mark.address))
-      .emit(everdragons2Protector, "StarterStarted")
+    await expect(everdragons2Protector.connect(bob).setInitiator(mark.address))
+      .emit(everdragons2Protector, "InitiatorStarted")
       .withArgs(bob.address, mark.address, true);
 
-    await expect(everdragons2Protector.connect(mark).confirmStarter(bob.address))
-      .emit(everdragons2Protector, "StarterUpdated")
+    await expect(everdragons2Protector.connect(mark).confirmInitiator(bob.address))
+      .emit(everdragons2Protector, "InitiatorUpdated")
       .withArgs(bob.address, mark.address, true);
 
     await expect(transferNft(everdragons2Protector, bob)(bob.address, alice.address, 1)).revertedWith("TransferNotPermitted()");
@@ -154,12 +154,12 @@ describe("Integration", function () {
     await everdragons2TransparentVault.connect(bob).depositNFT(1, particle.address, 2);
     expect(await everdragons2TransparentVault.ownedAssetAmount(1, particle.address, 2)).equal(1);
 
-    await expect(everdragons2Protector.connect(bob).setStarter(mark.address))
-      .emit(everdragons2Protector, "StarterStarted")
+    await expect(everdragons2Protector.connect(bob).setInitiator(mark.address))
+      .emit(everdragons2Protector, "InitiatorStarted")
       .withArgs(bob.address, mark.address, true);
 
-    await expect(everdragons2Protector.connect(mark).confirmStarter(bob.address))
-      .emit(everdragons2Protector, "StarterUpdated")
+    await expect(everdragons2Protector.connect(mark).confirmInitiator(bob.address))
+      .emit(everdragons2Protector, "InitiatorUpdated")
       .withArgs(bob.address, mark.address, true);
 
     await expect(everdragons2Protector.connect(mark).startTransfer(1, alice.address, 1000))

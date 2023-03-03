@@ -35,9 +35,9 @@ interface ITransparentVault {
   error UnconfirmedDepositNotExpiredYet();
   error InsufficientBalance();
   error TransferFailed();
-  error NotAllowedWhenStarter();
+  error NotAllowedWhenInitiator();
   error InvalidTransfer();
-  error NotTheStarter();
+  error NotTheInitiator();
   error AssetAlreadyBeingTransferred();
   error NotTheProtectorOwner();
   error AssetNotFound();
