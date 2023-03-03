@@ -35,9 +35,9 @@ interface ITransparentVault {
   error UnconfirmedDepositNotExpiredYet();
   error InsufficientBalance();
   error TransferFailed();
-  error NotAllowedWhenStarter();
+  error NotAllowedWhenInitiator();
   error InvalidTransfer();
-  error NotTheStarter();
+  error NotTheInitiator();
   error AssetAlreadyBeingTransferred();
   error NotTheProtectorOwner();
   error AssetNotFound();
@@ -68,7 +68,7 @@ interface ITransparentVault {
     // we can do this because the token id of a protector is always < 2^24
     uint24 fromId;
     uint24 toId;
-    address starter;
+    address initiator;
     uint32 expiresAt;
     bool approved;
     uint256 amount;

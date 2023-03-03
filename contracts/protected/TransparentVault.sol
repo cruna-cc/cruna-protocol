@@ -66,8 +66,8 @@ contract TransparentVault is
     _;
   }
 
-  modifier onlyStarter(uint256 protectorId) {
-    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
+  modifier onlyInitiator(uint256 protectorId) {
+    if (IProtector(dominantToken()).initiatorFor(ownerOf(protectorId)) != _msgSender()) revert NotTheInitiator();
     _;
   }
 
@@ -260,9 +260,9 @@ contract TransparentVault is
     uint256 amount
   ) external override onlyProtectorOwner(protectorId) {
     if (ownerOf(protectorId) != ownerOf(recipientProtectorId)) {
-      if (IProtector(dominantToken()).hasStarter(ownerOf(protectorId)))
+      if (IProtector(dominantToken()).hasInitiator(ownerOf(protectorId)))
         // startTransferAsset must be used instead
-        revert NotAllowedWhenStarter();
+        revert NotAllowedWhenInitiator();
     }
     _transferAsset(protectorId, recipientProtectorId, asset, id, amount);
   }
@@ -274,8 +274,8 @@ contract TransparentVault is
     uint256 id,
     uint256 amount,
     uint32 validFor
-  ) external override onlyStarter(protectorId) {
-    if (IProtector(dominantToken()).starterFor(ownerOf(protectorId)) != _msgSender()) revert NotTheStarter();
+  ) external override onlyInitiator(protectorId) {
+    if (IProtector(dominantToken()).initiatorFor(ownerOf(protectorId)) != _msgSender()) revert NotTheInitiator();
     if (isNFT(asset)) {
       if (_NFTDeposits[asset][id] != protectorId) revert NotTheDepositer();
     } else if (isSFT(asset)) {
@@ -286,12 +286,12 @@ contract TransparentVault is
       // should never happen
       revert InvalidAsset();
     }
-    if (_restrictedTransfers[asset][id].starter != address(0) || _restrictedTransfers[asset][id].expiresAt > block.timestamp)
+    if (_restrictedTransfers[asset][id].initiator != address(0) || _restrictedTransfers[asset][id].expiresAt > block.timestamp)
       revert AssetAlreadyBeingTransferred();
     _restrictedTransfers[asset][id] = RestrictedTransfer({
       fromId: uint24(protectorId),
       toId: uint24(recipientProtectorId),
-      starter: _msgSender(),
+      initiator: _msgSender(),
       expiresAt: uint32(block.timestamp) + validFor,
       approved: false,
       amount: amount
@@ -312,7 +312,7 @@ contract TransparentVault is
       transfer.toId != recipientProtectorId ||
       transfer.amount != amount ||
       transfer.expiresAt < block.timestamp ||
-      transfer.starter != IProtector(dominantToken()).starterFor(ownerOf(protectorId))
+      transfer.initiator != IProtector(dominantToken()).initiatorFor(ownerOf(protectorId))
     ) revert InvalidTransfer();
     _transferAsset(protectorId, recipientProtectorId, asset, id, amount);
     delete _restrictedTransfers[asset][id];

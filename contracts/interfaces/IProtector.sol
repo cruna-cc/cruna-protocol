@@ -9,13 +9,13 @@ interface IProtector is IERC721Approvable {
   // status
   // true: transfer initializer is being set
   // false: transfer initializer is being removed
-  event StarterStarted(address indexed owner, address indexed starter, bool status);
+  event InitiatorStarted(address indexed owner, address indexed initiator, bool status);
   // status
   // true: transfer initializer is set
   // false: transfer initializer is removed
-  event StarterUpdated(address indexed owner, address indexed starter, bool status);
+  event InitiatorUpdated(address indexed owner, address indexed initiator, bool status);
   //
-  event TransferStarted(address indexed starter, uint256 indexed tokenId, address indexed to);
+  event TransferStarted(address indexed initiator, uint256 indexed tokenId, address indexed to);
   event TransferExpired(uint256 tokenId);
 
   error NotTheTokenOwner();
@@ -25,22 +25,22 @@ interface IProtector is IERC721Approvable {
   error InvalidAddress();
   error TokenDoesNotExist();
   error SenderDoesNotOwnAnyToken();
-  error StarterNotFound();
+  error InitiatorNotFound();
   error TokenAlreadyBeingTransferred();
   error AssociatedToAnotherOwner();
-  error StarterAlreadySet();
-  error StarterAlreadySetByYou();
-  error NotStarter();
+  error InitiatorAlreadySet();
+  error InitiatorAlreadySetByYou();
+  error NotInitiator();
   error NotOwnByRelatedOwner();
   error TransferNotPermitted();
   error TokenIdTooBig();
-  error PendingStarterNotFound();
+  error PendingInitiatorNotFound();
   error UnsetAlreadyStarted();
   error UnsetNotStarted();
-  error NotTheStarter();
+  error NotTheInitiator();
 
   struct ControlledTransfer {
-    address starter;
+    address initiator;
     uint32 expiresAt;
     // ^ 24 bytes
     address to;
@@ -55,8 +55,8 @@ interface IProtector is IERC721Approvable {
     REMOVABLE
   }
 
-  struct Starter {
-    address starter;
+  struct Initiator {
+    address initiator;
     // the transfer initializer has to approve its role
     Status status;
   }
@@ -65,23 +65,23 @@ interface IProtector is IERC721Approvable {
 
   function updateDeployer(address newDeployer) external;
 
-  function starterFor(address owner_) external view returns (address);
+  function initiatorFor(address owner_) external view returns (address);
 
-  function hasStarter(address owner_) external view returns (bool);
+  function hasInitiator(address owner_) external view returns (bool);
 
-  function isStarterFor(address wallet) external view returns (address);
+  function isInitiatorFor(address wallet) external view returns (address);
 
-  function setStarter(address starter) external;
+  function setInitiator(address initiator) external;
 
-  function confirmStarter(address owner_) external;
+  function confirmInitiator(address owner_) external;
 
-  function refuseStarter(address owner_) external;
+  function refuseInitiator(address owner_) external;
 
-  function unsetStarter() external;
+  function unsetInitiator() external;
 
-  function confirmUnsetStarter(address owner_) external;
+  function confirmUnsetInitiator(address owner_) external;
 
-  function hasStarter(uint256 tokenId) external view returns (bool);
+  function hasInitiator(uint256 tokenId) external view returns (bool);
 
   function startTransfer(
     uint256 tokenId,
