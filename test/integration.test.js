@@ -18,6 +18,10 @@ describe("Integration", function () {
 
   beforeEach(async function () {
     everdragons2Protector = await deployContractUpgradeable("Everdragons2Protector", [e2Owner.address], {from: deployer});
+
+    expect(await everdragons2Protector.isProtector()).to.equal(true);
+    expect(await everdragons2Protector.supportsInterface("0x855f1e29")).to.be.true;
+
     await everdragons2Protector.connect(e2Owner).safeMint(bob.address, 1);
     await everdragons2Protector.connect(e2Owner).safeMint(bob.address, 2);
     await everdragons2Protector.connect(e2Owner).safeMint(bob.address, 3);
@@ -73,6 +77,7 @@ describe("Integration", function () {
     const newImplementation = await e2V2.deploy();
     await newImplementation.deployed();
     expect(await newImplementation.getId()).equal("0xf98e5a0b");
+    expect(await newImplementation.getId2()).equal("0x855f1e29");
     await everdragons2Protector.connect(deployer).upgradeTo(newImplementation.address);
     expect(await everdragons2Protector.version()).equal("2.0.0");
   });

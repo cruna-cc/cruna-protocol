@@ -12,4 +12,8 @@ contract Everdragons2ProtectorV2 is Everdragons2Protector {
   function getId() external pure returns (bytes4) {
     return type(IERC721Approvable).interfaceId;
   }
+
+  function getId2() external pure returns (bytes4) {
+    return type(IProtectorBase).interfaceId;
+  }
 }
