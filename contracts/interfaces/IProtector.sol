@@ -4,8 +4,9 @@ pragma solidity ^0.8.17;
 // Author: Francesco Sullo <francesco@sullo.co>
 
 import "./IERC721Approvable.sol";
+import "./IProtectorBase.sol";
 
-interface IProtector is IERC721Approvable {
+interface IProtector is IERC721Approvable, IProtectorBase {
   // status
   // true: transfer initializer is being set
   // false: transfer initializer is being removed
