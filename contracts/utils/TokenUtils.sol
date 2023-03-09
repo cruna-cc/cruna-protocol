@@ -8,10 +8,16 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 
+import "../interfaces/IProtectorBase.sol";
 import "hardhat/console.sol";
 
 contract TokenUtils {
+  error TheNFTIsAProtector();
+
   function isNFT(address asset) public view returns (bool) {
+    try IERC165Upgradeable(asset).supportsInterface(type(IProtectorBase).interfaceId) returns (bool result) {
+      if (result) revert TheNFTIsAProtector();
+    } catch {}
     try IERC165Upgradeable(asset).supportsInterface(type(IERC721Upgradeable).interfaceId) returns (bool result) {
       return result;
     } catch {}

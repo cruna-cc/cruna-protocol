@@ -81,6 +81,10 @@ contract Protector is
     // empty but needed to be sure that only PPP deployer can upgrade the contract
   }
 
+  function isProtector() external pure override returns (bool) {
+    return true;
+  }
+
   // The following functions are overrides required by Solidity.
   function _beforeTokenTransfer(
     address from,
@@ -101,7 +105,10 @@ contract Protector is
     override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
     returns (bool)
   {
-    return interfaceId == type(IERC721Approvable).interfaceId || super.supportsInterface(interfaceId);
+    return
+      interfaceId == type(IProtectorBase).interfaceId ||
+      interfaceId == type(IERC721Approvable).interfaceId ||
+      super.supportsInterface(interfaceId);
   }
 
   // manage approvals
